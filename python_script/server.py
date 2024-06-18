@@ -4,7 +4,6 @@ import plotly.graph_objs as go
 import pandas as pd
 import numpy as np
 from scipy.signal import savgol_filter
-import os.path as op
 import os
 from glob import glob
 
@@ -35,12 +34,23 @@ def render_spectral_info_on_field(csv):
         raise ValueError("The DataFrame must contain a 'doy' column.")
     else:
         df["doy"] = adjust_doy_column(df["doy"])
-    field_id = op.basename(csv).split(".")[0].split("_")[0]
-    return df, field_id
+    field_id = csv.split("/")[-1].split("_")[0]
+    return df, field_id, csv
 
 
 data_pth = os.getenv("DATA_PATH", "data")
-csvs = [f for f in glob(f"{data_pth}/input/**/*.csv", recursive=True)]
+
+files_annotated = [
+    f.replace("output", "input")
+    for f in glob(f"{data_pth}/output/**/*.csv", recursive=True)
+]
+print("Files annotated: ", len(files_annotated))
+
+csvs = [
+    f
+    for f in glob(f"{data_pth}/input/**/*.csv", recursive=True)
+    if f not in files_annotated
+]
 
 app = Dash(__name__)
 
@@ -71,8 +81,9 @@ app.layout = html.Div(
         dcc.Store(
             id="annotations-store",
             data={"cropping_windows": [], "flooding_windows": []},
-        ),  # To keep track of annotations
-    ]
+        ),
+    ],
+    style={"width": "100%"},
 )
 
 
@@ -86,7 +97,7 @@ def update_graph(field_index, annotations, ndvi_data_store):
         return go.Figure()  # Return an empty figure if no more CSVs are left
 
     csv = csvs[field_index]
-    df, field_id = render_spectral_info_on_field(csv)
+    df, field_id, folder_id = render_spectral_info_on_field(csv)
     df["s2_ndvi_smoothed"] = savgol_filter(df["s2_ndvi"], 10, 3)
     df["s1_vh_smoothed"] = savgol_filter(df["s1_vh"], 10, 3)
     df["s1_vv_smoothed"] = savgol_filter(df["s1_vv"], 10, 3)
@@ -132,8 +143,7 @@ def update_graph(field_index, annotations, ndvi_data_store):
         xaxis_title="DOY",
         yaxis_title="Smoothed Values",
         dragmode="select",
-        height=500,
-        width=1100,
+        height=800,
         xaxis=dict(fixedrange=False, tickmode="auto", gridcolor="LightGrey"),
         yaxis=dict(fixedrange=True),
     )
@@ -144,15 +154,15 @@ def update_graph(field_index, annotations, ndvi_data_store):
             x0=int(window["start"]),
             x1=int(window["end"]),
             fillcolor="green",
-            opacity=0.5,
+            opacity=0.15,
         )
         fig.add_shape(
             type="line",
             x0=int(window["start"]),
-            y0=1.0,
+            y0=-3,
             x1=int(window["end"]),
-            y1=0,
-            line=dict(color="green", width=4),
+            y1=-3,
+            line=dict(color="green", width=1),
         )
         # Calculate the midpoint for the text annotation
         mid_point = (window["start"] + window["end"]) / 2
@@ -160,13 +170,13 @@ def update_graph(field_index, annotations, ndvi_data_store):
         # Adding text annotation for the duration of the cropping window
         fig.add_annotation(
             x=mid_point,
-            y=1.0,  # You might need to adjust this depending on how you want the annotation to appear relative to your data
-            text=f"{int(window['end'] - window['start'])} days",  # Display the computed duration
-            showarrow=False,  # Set to True if you want an arrow pointing to the location
-            font=dict(family="Arial", size=13, color="white"),
+            y=-3,
+            text=f"{int(window['end'] - window['start'])} days",
+            showarrow=False,
+            font=dict(family="Arial", size=15, color="white"),
             align="center",
             bgcolor="green",
-            opacity=0.7,
+            opacity=1,
         )
 
     # Logic to add flooding windows to the figure
@@ -175,15 +185,15 @@ def update_graph(field_index, annotations, ndvi_data_store):
             x0=int(window["start"]),
             x1=int(window["end"]),
             fillcolor="blue",
-            opacity=0.5,
+            opacity=0.15,
         )
         fig.add_shape(
             type="line",
             x0=int(window["start"]),
-            y0=1.0,
+            y0=-2,
             x1=int(window["end"]),
-            y1=0,
-            line=dict(color="blue", width=4),
+            y1=-2,
+            line=dict(color="blue", width=1),
         )
         # Calculate the midpoint for the text annotation
         mid_point = (window["start"] + window["end"]) / 2
@@ -191,13 +201,13 @@ def update_graph(field_index, annotations, ndvi_data_store):
         # Adding text annotation for the duration of the cropping window
         fig.add_annotation(
             x=mid_point,
-            y=1.0,  # You might need to adjust this depending on how you want the annotation to appear relative to your data
-            text=f"{int(window['end'] - window['start'])} days",  # Display the computed duration
-            showarrow=False,  # Set to True if you want an arrow pointing to the location
+            y=-2,
+            text=f"{int(window['end'] - window['start'])} days",
+            showarrow=False,
             font=dict(family="Arial", size=15, color="white"),
             align="center",
             bgcolor="blue",
-            opacity=0.7,
+            opacity=1,
         )
 
     return fig
@@ -217,7 +227,7 @@ def save_annotations_and_next(n_clicks, annotations, field_index):
     if field_index < len(csvs):
         # Load the data for the current field
         csv = csvs[field_index]
-        df, field_id = render_spectral_info_on_field(csv)
+        df, field_id, csv_path = render_spectral_info_on_field(csv)
 
         # Ensure 'doy', 'y_ph', and 'y_fd' columns are present
         if "doy" not in df.columns:
@@ -274,8 +284,10 @@ def save_annotations_and_next(n_clicks, annotations, field_index):
                 f"Updated y_fd from {df['doy'].iloc[start_idx]} to {df['doy'].iloc[end_idx]}"
             )
 
-        df.to_csv(f"{data_pth}/output/af_{field_id}.csv", index=False)
+        os.makedirs(os.path.dirname(csv_path.replace("input", "output")), exist_ok=True)
+        df.to_csv(csv_path.replace("input", "output"), index=False)
         print(f"Annotations for field {field_id} saved to CSV")
+        print(f"***" * 20, "\n")
 
     # Move to the next field
     next_field_index = field_index + 1

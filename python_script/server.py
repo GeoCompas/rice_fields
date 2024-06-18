@@ -53,11 +53,15 @@ csvs = [
 ]
 
 app = Dash(__name__)
-
+btn_style = {"marginLeft": "5px", "marginRight": "5px"}
 # Simple layout with a Plotly graph and buttons to confirm selections
 app.layout = html.Div(
     [
-        html.Button("Save Annotations and Next", id="confirm-btn", n_clicks=0),
+        html.Button("Prev file", id="prev-btn", n_clicks=0, style=btn_style),
+        html.Button(
+            " -- Save Annotations and Next --", id="confirm-btn", n_clicks=0, style=btn_style
+        ),
+        html.Button("Next file", id="next-btn", n_clicks=0, style=btn_style),
         dcc.Graph(
             id="ndvi-time-series",
             config={"staticPlot": False, "scrollZoom": True},
@@ -76,11 +80,25 @@ app.layout = html.Div(
             n_intervals=0,
             max_intervals=1,  # This makes sure it only runs once after activation
         ),
-        html.Button("Mark Cropping Window", id="mark-cropping-window-btn", n_clicks=0),
-        html.Button("Mark Flooding Window", id="mark-flooding-window-btn", n_clicks=0),
+        html.Button(
+            "Mark Cropping Window",
+            id="mark-cropping-window-btn",
+            n_clicks=0,
+            style=btn_style,
+        ),
+        html.Button(
+            "Mark Flooding Window",
+            id="mark-flooding-window-btn",
+            n_clicks=0,
+            style=btn_style,
+        ),
         dcc.Store(
             id="annotations-store",
-            data={"cropping_windows": [], "flooding_windows": []},
+            data={
+                "cropping_windows": [],
+                "flooding_windows": [],
+                "annotation_type": None,
+            },
         ),
     ],
     style={"width": "100%"},
@@ -136,7 +154,7 @@ def update_graph(field_index, annotations, ndvi_data_store):
             ),
         ]
     )
-    title_text = f"Field {field_id}"
+    title_text = f"Field {field_id} - ({field_index})"
 
     fig.update_layout(
         title=title_text,
@@ -293,7 +311,83 @@ def save_annotations_and_next(n_clicks, annotations, field_index):
     next_field_index = field_index + 1
     return (
         f"Annotations saved for field {field_id}!",
-        {"cropping_windows": [], "flooding_windows": []},
+        {"cropping_windows": [], "flooding_windows": [], "annotation_type": None},
+        next_field_index,
+    )
+
+
+@app.callback(
+    [
+        Output("selected-period-output", "children", allow_duplicate=True),
+        Output("annotations-store", "data", allow_duplicate=True),
+        Output("field-index", "data", allow_duplicate=True),
+    ],
+    [Input("next-btn", "n_clicks")],
+    [State("annotations-store", "data"), State("field-index", "data")],
+    prevent_initial_call=True,
+)
+def next_file(n_clicks, annotations, field_index):
+    if field_index < len(csvs):
+        # Load the data for the current field
+        csv = csvs[field_index]
+        df, field_id, csv_path = render_spectral_info_on_field(csv)
+
+        # Ensure 'doy', 'y_ph', and 'y_fd' columns are present
+        if "doy" not in df.columns:
+            raise ValueError("The DataFrame must contain a 'doy' column.")
+
+        # Initialize y_ph and y_fd with NaN if they don't already exist
+        if "y_ph" not in df.columns:
+            df["y_ph"] = np.nan
+        if "y_fd" not in df.columns:
+            df["y_fd"] = np.nan
+
+        print(f"next field  {field_id}")
+        print(f"***" * 20, "\n")
+
+    # Move to the next field
+    next_field_index = field_index + 1
+    return (
+        f"Prev field {field_id}!",
+        {"cropping_windows": [], "flooding_windows": [], "annotation_type": None},
+        next_field_index,
+    )
+
+
+@app.callback(
+    [
+        Output("selected-period-output", "children", allow_duplicate=True),
+        Output("annotations-store", "data", allow_duplicate=True),
+        Output("field-index", "data", allow_duplicate=True),
+    ],
+    [Input("prev-btn", "n_clicks")],
+    [State("annotations-store", "data"), State("field-index", "data")],
+    prevent_initial_call=True,
+)
+def next_file(n_clicks, annotations, field_index):
+    if field_index < len(csvs) and field_index > 0:
+        # Load the data for the current field
+        csv = csvs[field_index]
+        df, field_id, csv_path = render_spectral_info_on_field(csv)
+
+        # Ensure 'doy', 'y_ph', and 'y_fd' columns are present
+        if "doy" not in df.columns:
+            raise ValueError("The DataFrame must contain a 'doy' column.")
+
+        # Initialize y_ph and y_fd with NaN if they don't already exist
+        if "y_ph" not in df.columns:
+            df["y_ph"] = np.nan
+        if "y_fd" not in df.columns:
+            df["y_fd"] = np.nan
+
+        print(f"next field  {field_id}")
+        print(f"***" * 20, "\n")
+
+    # Move to the next field
+    next_field_index = field_index - 1
+    return (
+        f"Prev field {field_id}!",
+        {"cropping_windows": [], "flooding_windows": [], "annotation_type": None},
         next_field_index,
     )
 
@@ -324,15 +418,11 @@ def register_window(
         # period_output = f"Selected period: {day_difference} days"
 
         if ctx.triggered[0]["prop_id"] == "mark-cropping-window-btn.n_clicks":
-            # Append the new window to the list of cropping windows
-            annotations["cropping_windows"].append(
-                window
-            )  # annotations["cropping_duration"] = day_difference  # print(f"Added cropping window: {annotations}")
+            annotations["cropping_windows"].append(window)
+            annotations["annotation_type"] = "cropping_windows"
         elif ctx.triggered[0]["prop_id"] == "mark-flooding-window-btn.n_clicks":
-            # Append the new window to the list of flooding windows
-            annotations["flooding_windows"].append(
-                window
-            )  # annotations["flooding_duration"] = day_difference  # print(f"Added flooding window: {annotations}")
+            annotations["flooding_windows"].append(window)
+            annotations["annotation_type"] = "flooding_windows"
 
     return annotations
 

@@ -175,12 +175,14 @@ def update_graph(field_index, annotations, ndvi_data_store):
         yaxis=dict(fixedrange=True),
     )
     # default 1
-    fig.add_shape(type="line",
-                  x0=0,
-                  y0=1,
-                  x1=400,
-                  y1=1,
-                  line=dict(color="black", width=0.3), )
+    fig.add_shape(
+        type="line",
+        x0=0,
+        y0=1,
+        x1=400,
+        y1=1,
+        line=dict(color="black", width=0.3),
+    )
 
     # Logic to add planting and harvest windows to the figure
     for window in annotations.get("cropping_windows", []):
@@ -190,12 +192,20 @@ def update_graph(field_index, annotations, ndvi_data_store):
             fillcolor="green",
             opacity=0.15,
         )
+        # second crop
+        last_period = (int(window["end"]) - int(window["start"])) // 4
+        fig.add_vrect(
+            x0=int(window["end"]) - last_period,
+            x1=int(window["end"]),
+            fillcolor="green",
+            opacity=0.15,
+        )
         fig.add_shape(
             type="line",
             x0=int(window["start"]),
-            y0=-3,
+            y0=-5,
             x1=int(window["end"]),
-            y1=-3,
+            y1=-5,
             line=dict(color="green", width=1),
         )
         # Calculate the midpoint for the text annotation
@@ -204,7 +214,7 @@ def update_graph(field_index, annotations, ndvi_data_store):
         # Adding text annotation for the duration of the cropping window
         fig.add_annotation(
             x=mid_point,
-            y=-3,
+            y=-5,
             text=f"{int(window['end'] - window['start'])} days",
             showarrow=False,
             font=dict(family="Arial", size=15, color="white"),
@@ -380,7 +390,7 @@ def next_file(n_clicks, annotations, field_index):
     [State("annotations-store", "data"), State("field-index", "data")],
     prevent_initial_call=True,
 )
-def next_file(n_clicks, annotations, field_index):
+def prev_file(n_clicks, annotations, field_index):
     if field_index < len(csvs) and field_index > 0:
         # Load the data for the current field
         csv = csvs[field_index]
@@ -396,10 +406,10 @@ def next_file(n_clicks, annotations, field_index):
         if "y_fd" not in df.columns:
             df["y_fd"] = np.nan
 
-        print(f"next field  {field_id}")
+        print(f"prev field  {field_id}")
         print(f"***" * 20, "\n")
 
-    # Move to the next field
+        # Move to the next field
     next_field_index = field_index - 1
     return (
         f"Prev field {field_id}!",
@@ -439,7 +449,6 @@ def register_window(
         elif ctx.triggered[0]["prop_id"] == "mark-flooding-window-btn.n_clicks":
             annotations["flooding_windows"].append(window)
             annotations["annotation_type"].append("flooding_windows")
-
     return annotations
 
 

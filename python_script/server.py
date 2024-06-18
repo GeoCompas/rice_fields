@@ -59,7 +59,10 @@ app.layout = html.Div(
     [
         html.Button("Prev file", id="prev-btn", n_clicks=0, style=btn_style),
         html.Button(
-            " -- Save Annotations and Next --", id="confirm-btn", n_clicks=0, style=btn_style
+            " -- Save Annotations and Next --",
+            id="confirm-btn",
+            n_clicks=0,
+            style=btn_style,
         ),
         html.Button("Next file", id="next-btn", n_clicks=0, style=btn_style),
         dcc.Graph(
@@ -92,12 +95,18 @@ app.layout = html.Div(
             n_clicks=0,
             style=btn_style,
         ),
+        html.Button(
+            "-- remove last annotation--",
+            id="rm-last-window-btn",
+            n_clicks=0,
+            style=btn_style,
+        ),
         dcc.Store(
             id="annotations-store",
             data={
                 "cropping_windows": [],
                 "flooding_windows": [],
-                "annotation_type": None,
+                "annotation_type": [],
             },
         ),
     ],
@@ -165,6 +174,13 @@ def update_graph(field_index, annotations, ndvi_data_store):
         xaxis=dict(fixedrange=False, tickmode="auto", gridcolor="LightGrey"),
         yaxis=dict(fixedrange=True),
     )
+    # default 1
+    fig.add_shape(type="line",
+                  x0=0,
+                  y0=1,
+                  x1=400,
+                  y1=1,
+                  line=dict(color="black", width=0.3), )
 
     # Logic to add planting and harvest windows to the figure
     for window in annotations.get("cropping_windows", []):
@@ -311,7 +327,7 @@ def save_annotations_and_next(n_clicks, annotations, field_index):
     next_field_index = field_index + 1
     return (
         f"Annotations saved for field {field_id}!",
-        {"cropping_windows": [], "flooding_windows": [], "annotation_type": None},
+        {"cropping_windows": [], "flooding_windows": [], "annotation_type": []},
         next_field_index,
     )
 
@@ -349,7 +365,7 @@ def next_file(n_clicks, annotations, field_index):
     next_field_index = field_index + 1
     return (
         f"Prev field {field_id}!",
-        {"cropping_windows": [], "flooding_windows": [], "annotation_type": None},
+        {"cropping_windows": [], "flooding_windows": [], "annotation_type": []},
         next_field_index,
     )
 
@@ -387,7 +403,7 @@ def next_file(n_clicks, annotations, field_index):
     next_field_index = field_index - 1
     return (
         f"Prev field {field_id}!",
-        {"cropping_windows": [], "flooding_windows": [], "annotation_type": None},
+        {"cropping_windows": [], "flooding_windows": [], "annotation_type": []},
         next_field_index,
     )
 
@@ -419,10 +435,33 @@ def register_window(
 
         if ctx.triggered[0]["prop_id"] == "mark-cropping-window-btn.n_clicks":
             annotations["cropping_windows"].append(window)
-            annotations["annotation_type"] = "cropping_windows"
+            annotations["annotation_type"].append("cropping_windows")
         elif ctx.triggered[0]["prop_id"] == "mark-flooding-window-btn.n_clicks":
             annotations["flooding_windows"].append(window)
-            annotations["annotation_type"] = "flooding_windows"
+            annotations["annotation_type"].append("flooding_windows")
+
+    return annotations
+
+
+@app.callback(
+    Output("annotations-store", "data", allow_duplicate=True),
+    [
+        Input("rm-last-window-btn", "n_clicks"),
+    ],
+    [
+        State("annotations-store", "data"),
+    ],
+    prevent_initial_call=True,
+)
+def remove_last_window(n_clicks, annotations):
+    if n_clicks is None:
+        return dash.no_update
+
+    annotation_type = annotations.get("annotation_type")
+    if annotation_type and len(annotation_type):
+        last_annotation = annotation_type[-1]
+        annotations[last_annotation].pop()
+        annotations["annotation_type"].pop()
 
     return annotations
 

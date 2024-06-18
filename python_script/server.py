@@ -44,16 +44,21 @@ files_annotated = [
     f.replace("output", "input")
     for f in glob(f"{data_pth}/output/**/*.csv", recursive=True)
 ]
+files_incomplete = [
+    f.replace("incomplete", "input")
+    for f in glob(f"{data_pth}/incomplete/**/*.csv", recursive=True)
+]
 print("Files annotated: ", len(files_annotated))
+print("Files incomplete: ", len(files_incomplete))
 
 csvs = [
     f
     for f in glob(f"{data_pth}/input/**/*.csv", recursive=True)
-    if f not in files_annotated
+    if f not in [*files_annotated,*files_incomplete]
 ]
 
 app = Dash(__name__)
-btn_style = {"marginLeft": "5px", "marginRight": "5px"}
+btn_style = {"marginLeft": "5px", "marginRight": "5px", "padding": "3px"}
 # Simple layout with a Plotly graph and buttons to confirm selections
 app.layout = html.Div(
     [
@@ -65,6 +70,12 @@ app.layout = html.Div(
             style=btn_style,
         ),
         html.Button("Next file", id="next-btn", n_clicks=0, style=btn_style),
+        html.Button(
+            "Save file with incomplete data ",
+            id="incomplete-btn",
+            n_clicks=0,
+            style=btn_style,
+        ),
         dcc.Graph(
             id="ndvi-time-series",
             config={"staticPlot": False, "scrollZoom": True},
@@ -375,6 +386,46 @@ def next_file(n_clicks, annotations, field_index):
     next_field_index = field_index + 1
     return (
         f"Prev field {field_id}!",
+        {"cropping_windows": [], "flooding_windows": [], "annotation_type": []},
+        next_field_index,
+    )
+
+@app.callback(
+    [
+        Output("selected-period-output", "children", allow_duplicate=True),
+        Output("annotations-store", "data", allow_duplicate=True),
+        Output("field-index", "data", allow_duplicate=True),
+    ],
+    [Input("incomplete-btn", "n_clicks")],
+    [State("annotations-store", "data"), State("field-index", "data")],
+    prevent_initial_call=True,
+)
+def incomplete_file(n_clicks, annotations, field_index):
+    if field_index < len(csvs):
+        # Load the data for the current field
+        csv = csvs[field_index]
+        df, field_id, csv_path = render_spectral_info_on_field(csv)
+
+        # Ensure 'doy', 'y_ph', and 'y_fd' columns are present
+        if "doy" not in df.columns:
+            raise ValueError("The DataFrame must contain a 'doy' column.")
+
+        # Initialize y_ph and y_fd with NaN if they don't already exist
+        if "y_ph" not in df.columns:
+            df["y_ph"] = np.nan
+        if "y_fd" not in df.columns:
+            df["y_fd"] = np.nan
+
+        os.makedirs(os.path.dirname(csv_path.replace("input", "incomplete")), exist_ok=True)
+        df.to_csv(csv_path.replace("input", "incomplete"), index=False)
+        print(f"Incomplete field {field_id} saved to CSV")
+        print(f"***" * 20, "\n")
+
+    # Move to the next field
+    next_field_index = field_index + 1
+
+    return (
+        f"incomplete field {field_id}!",
         {"cropping_windows": [], "flooding_windows": [], "annotation_type": []},
         next_field_index,
     )

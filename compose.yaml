@@ -1,0 +1,12 @@
+services:
+  server:
+    command: python server.py
+    build:
+      context: .
+    ports:
+      - 8060:8060
+    volumes:
+      - ./python_script:/app
+      - ./data:/mnt
+    environment:
+      - DATA_PATH=/mnt

@@ -59,21 +59,22 @@ def read_csv(field_index, csvs_):
 data_pth = os.getenv("DATA_PATH", "data")
 
 files_annotated = [
-    f.replace("output", "input")
-    for f in glob(f"{data_pth}/output/**/*.csv", recursive=True)
+    f.replace("/output/", "/input/") for f in glob(f"{data_pth}/output/**/*.csv")
 ]
 files_incomplete = [
-    f.replace("incomplete", "input")
-    for f in glob(f"{data_pth}/incomplete/**/*.csv", recursive=True)
+    f.replace("/incomplete/", "/input/")
+    for f in glob(f"{data_pth}/incomplete/**/*.csv")
 ]
+all_csv = [f for f in glob(f"{data_pth}/input/**/*.csv")]
+csvs = [f for f in all_csv if f not in [*files_annotated, *files_incomplete]]
+
+print("=" * 20)
+print("Files input: ", len(all_csv))
 print("Files annotated: ", len(files_annotated))
 print("Files incomplete: ", len(files_incomplete))
+print("Files filter: ", len(csvs))
+print("=" * 20)
 
-csvs = [
-    f
-    for f in glob(f"{data_pth}/input/**/*.csv", recursive=True)
-    if f not in [*files_annotated, *files_incomplete]
-]
 ALL_CSV_COUNT = len(csvs)
 
 app = Dash(__name__)
@@ -350,7 +351,7 @@ def save_annotations_and_next(n_clicks, annotations, field_index):
             )
 
         os.makedirs(os.path.dirname(csv_path.replace("input", "output")), exist_ok=True)
-        df.to_csv(csv_path.replace("input", "output"), index=False)
+        df.to_csv(csv_path.replace("/input/", "/output/"), index=False)
         print(f"Annotations for field {field_id} saved to CSV")
         print(f"***" * 10, "\n")
 
@@ -407,7 +408,7 @@ def incomplete_file(n_clicks, annotations, field_index):
         os.makedirs(
             os.path.dirname(csv_path.replace("input", "incomplete")), exist_ok=True
         )
-        df.to_csv(csv_path.replace("input", "incomplete"), index=False)
+        df.to_csv(csv_path.replace("/input/", "/incomplete/"), index=False)
         print(f"Incomplete field {field_id} saved to CSV")
         print(f"***" * 10, "\n")
 

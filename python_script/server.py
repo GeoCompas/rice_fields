@@ -38,6 +38,24 @@ def render_spectral_info_on_field(csv):
     return df, field_id, csv
 
 
+def read_csv(field_index, csvs_):
+    # Load the data for the current field
+    csv = csvs_[field_index]
+
+    df, field_id, csv_path = render_spectral_info_on_field(csv)
+
+    # Ensure 'doy', 'y_ph', and 'y_fd' columns are present
+    if "doy" not in df.columns:
+        raise ValueError("The DataFrame must contain a 'doy' column.")
+
+    # Initialize y_ph and y_fd with NaN if they don't already exist
+    if "y_ph" not in df.columns:
+        df["y_ph"] = np.nan
+    if "y_fd" not in df.columns:
+        df["y_fd"] = np.nan
+    return df, field_id, csv_path
+
+
 data_pth = os.getenv("DATA_PATH", "data")
 
 files_annotated = [
@@ -54,8 +72,9 @@ print("Files incomplete: ", len(files_incomplete))
 csvs = [
     f
     for f in glob(f"{data_pth}/input/**/*.csv", recursive=True)
-    if f not in [*files_annotated,*files_incomplete]
+    if f not in [*files_annotated, *files_incomplete]
 ]
+ALL_CSV_COUNT = len(csvs)
 
 app = Dash(__name__)
 btn_style = {"marginLeft": "5px", "marginRight": "5px", "padding": "3px"}
@@ -121,7 +140,7 @@ app.layout = html.Div(
             },
         ),
     ],
-    style={"width": "100%"},
+    style={"width": "100%", "textAlign": "center"},
 )
 
 
@@ -174,14 +193,15 @@ def update_graph(field_index, annotations, ndvi_data_store):
             ),
         ]
     )
-    title_text = f"Field {field_id} - ({field_index})"
+    fig.update_traces(marker_size=10)
+    title_text = f"Field {field_id} ---> ({field_index+1} / {ALL_CSV_COUNT })"
 
     fig.update_layout(
         title=title_text,
         xaxis_title="DOY",
         yaxis_title="Smoothed Values",
         dragmode="select",
-        height=800,
+        height=700,
         xaxis=dict(fixedrange=False, tickmode="auto", gridcolor="LightGrey"),
         yaxis=dict(fixedrange=True),
     )
@@ -279,21 +299,11 @@ def update_graph(field_index, annotations, ndvi_data_store):
     prevent_initial_call=True,
 )
 def save_annotations_and_next(n_clicks, annotations, field_index):
+    field_id = "---"
+    next_field_index = field_index
+
     if field_index < len(csvs):
-        # Load the data for the current field
-        csv = csvs[field_index]
-        df, field_id, csv_path = render_spectral_info_on_field(csv)
-
-        # Ensure 'doy', 'y_ph', and 'y_fd' columns are present
-        if "doy" not in df.columns:
-            raise ValueError("The DataFrame must contain a 'doy' column.")
-
-        # Initialize y_ph and y_fd with NaN if they don't already exist
-        if "y_ph" not in df.columns:
-            df["y_ph"] = np.nan
-        if "y_fd" not in df.columns:
-            df["y_fd"] = np.nan
-
+        df, field_id, csv_path = read_csv(field_index, csvs)
         print(f"Processing annotations for field {field_id}")
 
         # Helper function to find the closest index
@@ -344,8 +354,7 @@ def save_annotations_and_next(n_clicks, annotations, field_index):
         print(f"Annotations for field {field_id} saved to CSV")
         print(f"***" * 20, "\n")
 
-    # Move to the next field
-    next_field_index = field_index + 1
+        next_field_index = field_index + 1
     return (
         f"Annotations saved for field {field_id}!",
         {"cropping_windows": [], "flooding_windows": [], "annotation_type": []},
@@ -364,31 +373,20 @@ def save_annotations_and_next(n_clicks, annotations, field_index):
     prevent_initial_call=True,
 )
 def next_file(n_clicks, annotations, field_index):
+    field_id = "---"
+    next_field_index = field_index
     if field_index < len(csvs):
-        # Load the data for the current field
-        csv = csvs[field_index]
-        df, field_id, csv_path = render_spectral_info_on_field(csv)
-
-        # Ensure 'doy', 'y_ph', and 'y_fd' columns are present
-        if "doy" not in df.columns:
-            raise ValueError("The DataFrame must contain a 'doy' column.")
-
-        # Initialize y_ph and y_fd with NaN if they don't already exist
-        if "y_ph" not in df.columns:
-            df["y_ph"] = np.nan
-        if "y_fd" not in df.columns:
-            df["y_fd"] = np.nan
-
+        df, field_id, csv_path = read_csv(field_index, csvs)
         print(f"next field  {field_id}")
         print(f"***" * 20, "\n")
+        next_field_index = field_index + 1
 
-    # Move to the next field
-    next_field_index = field_index + 1
     return (
         f"Prev field {field_id}!",
         {"cropping_windows": [], "flooding_windows": [], "annotation_type": []},
         next_field_index,
     )
+
 
 @app.callback(
     [
@@ -401,28 +399,19 @@ def next_file(n_clicks, annotations, field_index):
     prevent_initial_call=True,
 )
 def incomplete_file(n_clicks, annotations, field_index):
+    field_id = "--"
+    next_field_index = field_index
     if field_index < len(csvs):
-        # Load the data for the current field
-        csv = csvs[field_index]
-        df, field_id, csv_path = render_spectral_info_on_field(csv)
+        df, field_id, csv_path = read_csv(field_index, csvs)
 
-        # Ensure 'doy', 'y_ph', and 'y_fd' columns are present
-        if "doy" not in df.columns:
-            raise ValueError("The DataFrame must contain a 'doy' column.")
-
-        # Initialize y_ph and y_fd with NaN if they don't already exist
-        if "y_ph" not in df.columns:
-            df["y_ph"] = np.nan
-        if "y_fd" not in df.columns:
-            df["y_fd"] = np.nan
-
-        os.makedirs(os.path.dirname(csv_path.replace("input", "incomplete")), exist_ok=True)
+        os.makedirs(
+            os.path.dirname(csv_path.replace("input", "incomplete")), exist_ok=True
+        )
         df.to_csv(csv_path.replace("input", "incomplete"), index=False)
         print(f"Incomplete field {field_id} saved to CSV")
         print(f"***" * 20, "\n")
 
-    # Move to the next field
-    next_field_index = field_index + 1
+        next_field_index = field_index + 1
 
     return (
         f"incomplete field {field_id}!",
@@ -442,26 +431,19 @@ def incomplete_file(n_clicks, annotations, field_index):
     prevent_initial_call=True,
 )
 def prev_file(n_clicks, annotations, field_index):
-    if field_index < len(csvs) and field_index > 0:
-        # Load the data for the current field
-        csv = csvs[field_index]
-        df, field_id, csv_path = render_spectral_info_on_field(csv)
+    field_id = "--"
+    next_field_index = field_index
+    if field_index > len(csvs):
+        field_index = len(csvs)
 
-        # Ensure 'doy', 'y_ph', and 'y_fd' columns are present
-        if "doy" not in df.columns:
-            raise ValueError("The DataFrame must contain a 'doy' column.")
-
-        # Initialize y_ph and y_fd with NaN if they don't already exist
-        if "y_ph" not in df.columns:
-            df["y_ph"] = np.nan
-        if "y_fd" not in df.columns:
-            df["y_fd"] = np.nan
+    if field_index > 0:
+        df, field_id, csv_path = read_csv(field_index - 1, csvs)
 
         print(f"prev field  {field_id}")
         print(f"***" * 20, "\n")
 
         # Move to the next field
-    next_field_index = field_index - 1
+        next_field_index -= 1
     return (
         f"Prev field {field_id}!",
         {"cropping_windows": [], "flooding_windows": [], "annotation_type": []},

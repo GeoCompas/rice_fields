@@ -54,3 +54,11 @@ rice_fields='docker run --rm \
     -e DATA_PATH=/mnt \
     geocompas/rice_fields:v1 python server.py'
 ```
+
+### Permissions
+In some cases,
+
+```shell
+sudo chmod -R 777 ./data
+
+```

@@ -194,7 +194,7 @@ def update_graph(field_index, annotations, ndvi_data_store):
         ]
     )
     fig.update_traces(marker_size=10)
-    title_text = f"Field {field_id} ---> ({field_index+1} / {ALL_CSV_COUNT })"
+    title_text = f"Field:\t  {folder_id.split('/')[-2]}/{field_id} ---> ({field_index+1} / {ALL_CSV_COUNT })"
 
     fig.update_layout(
         title=title_text,
@@ -352,7 +352,7 @@ def save_annotations_and_next(n_clicks, annotations, field_index):
         os.makedirs(os.path.dirname(csv_path.replace("input", "output")), exist_ok=True)
         df.to_csv(csv_path.replace("input", "output"), index=False)
         print(f"Annotations for field {field_id} saved to CSV")
-        print(f"***" * 20, "\n")
+        print(f"***" * 10, "\n")
 
         next_field_index = field_index + 1
     return (
@@ -378,7 +378,7 @@ def next_file(n_clicks, annotations, field_index):
     if field_index < len(csvs):
         df, field_id, csv_path = read_csv(field_index, csvs)
         print(f"next field  {field_id}")
-        print(f"***" * 20, "\n")
+        print(f"***" * 10, "\n")
         next_field_index = field_index + 1
 
     return (
@@ -409,7 +409,7 @@ def incomplete_file(n_clicks, annotations, field_index):
         )
         df.to_csv(csv_path.replace("input", "incomplete"), index=False)
         print(f"Incomplete field {field_id} saved to CSV")
-        print(f"***" * 20, "\n")
+        print(f"***" * 10, "\n")
 
         next_field_index = field_index + 1
 
@@ -440,7 +440,7 @@ def prev_file(n_clicks, annotations, field_index):
         df, field_id, csv_path = read_csv(field_index - 1, csvs)
 
         print(f"prev field  {field_id}")
-        print(f"***" * 20, "\n")
+        print(f"***" * 10, "\n")
 
         # Move to the next field
         next_field_index -= 1

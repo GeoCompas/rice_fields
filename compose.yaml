@@ -8,6 +8,6 @@ services:
       - 8060:8060
     volumes:
       - ./python_script:/app
-      - ./data:/mnt
+      - ./data:/mnt:rw
     environment:
       - DATA_PATH=/mnt

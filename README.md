@@ -1,5 +1,6 @@
 # temporal events in rice fields
 
+![image](./image.png)
 
 ### Add csv files
 Place your CSV files containing temporal event data in the following directory:

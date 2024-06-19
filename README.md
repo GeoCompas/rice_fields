@@ -43,3 +43,14 @@ project-root/
 └── ...
 
 ```
+
+### Alias script
+
+```bash
+rice_fields='docker run --rm \
+    -v ${HOME}/Developer/rice_fields/python_script:/app \
+    -v ${HOME}/Developer/rice_fields/data:/mnt \
+    -p 8060:8060 \
+    -e DATA_PATH=/mnt \
+    geocompas/rice_fields:v1 python server.py'
+```

@@ -1,5 +1,6 @@
 services:
   server:
+    image: geocompas/rice_fields:v1
     command: python server.py
     build:
       context: .

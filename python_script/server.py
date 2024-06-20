@@ -163,7 +163,7 @@ def update_graph(field_index, annotations, ndvi_data_store):
     df["s2_mndwi_smoothed"] = savgol_filter(df["s2_mndwi"], 10, 3)
 
     fig = go.Figure(
-        data=[  # go.Scatter(x=df['doy'], y=df['s2_ndwi_smoothed']*15, mode='lines+markers', name='S2 NDWI Smoothed', line=dict(color='blue')),
+        data=[
             go.Scatter(
                 x=df["doy"],
                 y=df["s2_mndwi_smoothed"] * 15,
@@ -177,6 +177,13 @@ def update_graph(field_index, annotations, ndvi_data_store):
                 mode="lines+markers",
                 name="S2 NDVI Smoothed",
                 line=dict(color="green"),
+            ),
+            go.Scatter(
+                x=df["doy"],
+                y=df["s2_ndwi_smoothed"] * 15,
+                mode="lines+markers",
+                name="S2 NDWI Smoothed",
+                line=dict(color="blue"),
             ),
             go.Scatter(
                 x=df["doy"],
@@ -194,7 +201,7 @@ def update_graph(field_index, annotations, ndvi_data_store):
             ),
         ]
     )
-    fig.update_traces(marker_size=10)
+    fig.update_traces(marker_size=8)
     title_text = f"Field:\t  {folder_id.split('/')[-2]}/{field_id} ---> ({field_index+1} / {ALL_CSV_COUNT })"
 
     fig.update_layout(
@@ -218,36 +225,39 @@ def update_graph(field_index, annotations, ndvi_data_store):
 
     # Logic to add planting and harvest windows to the figure
     for window in annotations.get("cropping_windows", []):
+        x0 = round(float(window["start"]))
+        x1 = round(float(window["end"]))
+        last_period = (x1 - x0) // 4
+        mid_point = (window["start"] + window["end"]) / 2
+
         fig.add_vrect(
-            x0=int(window["start"]),
-            x1=int(window["end"]),
+            x0=x0,
+            x1=x1,
             fillcolor="green",
             opacity=0.15,
         )
         # second crop
-        last_period = (int(window["end"]) - int(window["start"])) // 4
         fig.add_vrect(
-            x0=int(window["end"]) - last_period,
-            x1=int(window["end"]),
+            x0=x1 - last_period,
+            x1=x1,
             fillcolor="green",
             opacity=0.15,
         )
         fig.add_shape(
             type="line",
-            x0=int(window["start"]),
+            x0=x0,
             y0=-5,
-            x1=int(window["end"]),
+            x1=x1,
             y1=-5,
             line=dict(color="green", width=1),
         )
         # Calculate the midpoint for the text annotation
-        mid_point = (window["start"] + window["end"]) / 2
 
         # Adding text annotation for the duration of the cropping window
         fig.add_annotation(
             x=mid_point,
             y=-5,
-            text=f"{int(window['end'] - window['start'])} days",
+            text=f"{int(x1 - x0)} days",
             showarrow=False,
             font=dict(family="Arial", size=15, color="white"),
             align="center",
@@ -257,28 +267,31 @@ def update_graph(field_index, annotations, ndvi_data_store):
 
     # Logic to add flooding windows to the figure
     for window in annotations.get("flooding_windows", []):
+        x0 = round(float(window["start"]))
+        x1 = round(float(window["end"]))
+        mid_point = (window["start"] + window["end"]) / 2
+
         fig.add_vrect(
-            x0=int(window["start"]),
-            x1=int(window["end"]),
+            x0=x0,
+            x1=x1,
             fillcolor="blue",
             opacity=0.15,
         )
         fig.add_shape(
             type="line",
-            x0=int(window["start"]),
+            x0=x0,
             y0=-2,
-            x1=int(window["end"]),
+            x1=x1,
             y1=-2,
             line=dict(color="blue", width=1),
         )
         # Calculate the midpoint for the text annotation
-        mid_point = (window["start"] + window["end"]) / 2
 
         # Adding text annotation for the duration of the cropping window
         fig.add_annotation(
             x=mid_point,
             y=-2,
-            text=f"{int(window['end'] - window['start'])} days",
+            text=f"{int(x1 - x0)} days",
             showarrow=False,
             font=dict(family="Arial", size=15, color="white"),
             align="center",

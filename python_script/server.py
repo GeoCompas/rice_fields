@@ -38,11 +38,9 @@ def render_spectral_info_on_field(csv):
     return df, field_id, csv
 
 
-def read_csv(field_index, csvs_):
+def read_csv(csv_):
     # Load the data for the current field
-    csv = csvs_[field_index]
-
-    df, field_id, csv_path = render_spectral_info_on_field(csv)
+    df, field_id, csv_path = render_spectral_info_on_field(csv_)
 
     # Ensure 'doy', 'y_ph', and 'y_fd' columns are present
     if "doy" not in df.columns:
@@ -66,7 +64,11 @@ files_incomplete = [
     for f in glob(f"{data_pth}/incomplete/**/*.csv")
 ]
 all_csv = [f for f in glob(f"{data_pth}/input/**/*.csv")]
-csvs = [f for f in all_csv if f not in [*files_annotated, *files_incomplete]]
+csvs = [
+    {"file_path": f, "annotations": []}
+    for f in all_csv
+    if f not in [*files_annotated, *files_incomplete]
+]
 
 print("=" * 20)
 print("Files input: ", len(all_csv))
@@ -132,14 +134,6 @@ app.layout = html.Div(
             n_clicks=0,
             style=btn_style,
         ),
-        dcc.Store(
-            id="annotations-store",
-            data={
-                "cropping_windows": [],
-                "flooding_windows": [],
-                "annotation_type": [],
-            },
-        ),
     ],
     style={"width": "100%", "textAlign": "center"},
 )
@@ -147,15 +141,17 @@ app.layout = html.Div(
 
 @app.callback(
     Output("ndvi-time-series", "figure"),
-    [Input("field-index", "data"), Input("annotations-store", "data")],
+    [Input("field-index", "data")],
     State("ndvi-data-store", "data"),
 )
-def update_graph(field_index, annotations, ndvi_data_store):
-    if field_index >= len(csvs):
+def update_graph(field_index, ndvi_data_store):
+    if field_index >= ALL_CSV_COUNT:
         return go.Figure()  # Return an empty figure if no more CSVs are left
 
     csv = csvs[field_index]
-    df, field_id, folder_id = render_spectral_info_on_field(csv)
+    df, field_id, folder_id = render_spectral_info_on_field(csv.get("file_path"))
+    annotations = csv.get("annotations", [])
+
     df["s2_ndvi_smoothed"] = savgol_filter(df["s2_ndvi"], 10, 3)
     df["s1_vh_smoothed"] = savgol_filter(df["s1_vh"], 10, 3)
     df["s1_vv_smoothed"] = savgol_filter(df["s1_vv"], 10, 3)
@@ -222,9 +218,11 @@ def update_graph(field_index, annotations, ndvi_data_store):
         y1=1,
         line=dict(color="black", width=0.3),
     )
+    cropping_windows = [i for i in annotations if i.get("type") == "cropping_windows"]
+    flooding_windows = [i for i in annotations if i.get("type") == "flooding_windows"]
 
     # Logic to add planting and harvest windows to the figure
-    for window in annotations.get("cropping_windows", []):
+    for window in cropping_windows:
         x0 = round(float(window["start"]))
         x1 = round(float(window["end"]))
         last_period = (x1 - x0) // 4
@@ -266,7 +264,7 @@ def update_graph(field_index, annotations, ndvi_data_store):
         )
 
     # Logic to add flooding windows to the figure
-    for window in annotations.get("flooding_windows", []):
+    for window in flooding_windows:
         x0 = round(float(window["start"]))
         x1 = round(float(window["end"]))
         mid_point = (window["start"] + window["end"]) / 2
@@ -305,27 +303,36 @@ def update_graph(field_index, annotations, ndvi_data_store):
 @app.callback(
     [
         Output("selected-period-output", "children", allow_duplicate=True),
-        Output("annotations-store", "data", allow_duplicate=True),
         Output("field-index", "data"),
     ],
     [Input("confirm-btn", "n_clicks")],
-    [State("annotations-store", "data"), State("field-index", "data")],
+    [State("field-index", "data")],
     prevent_initial_call=True,
 )
-def save_annotations_and_next(n_clicks, annotations, field_index):
+def save_annotations_and_next(n_clicks, field_index):
     field_id = "---"
     next_field_index = field_index
+    csv_annotation = []
+    if field_index < ALL_CSV_COUNT:
+        csv = csvs[field_index]
 
-    if field_index < len(csvs):
-        df, field_id, csv_path = read_csv(field_index, csvs)
+        df, field_id, csv_path = read_csv(csv.get("file_path"))
+        csv_annotation = csv.get("annotations", [])
         print(f"Processing annotations for field {field_id}")
 
         # Helper function to find the closest index
         def find_closest_index(value, array):
             return (np.abs(array - value)).argmin()
 
+        cropping_windows = [
+            i for i in csv_annotation if i.get("type") == "cropping_windows"
+        ]
+        flooding_windows = [
+            i for i in csv_annotation if i.get("type") == "flooding_windows"
+        ]
+
         # Process each cropping window for y_ph
-        for window in annotations["cropping_windows"]:
+        for window in cropping_windows:
             window["planting_date_0"] = window["start"]
             window["harvest_date_0"] = window["end"]
 
@@ -346,7 +353,7 @@ def save_annotations_and_next(n_clicks, annotations, field_index):
             )
 
         # Process each flooding window for y_fd
-        for window in annotations["flooding_windows"]:
+        for window in flooding_windows:
             # Find the closest start and end indices
             start_idx = find_closest_index(window["start"], df["doy"].values)
             end_idx = find_closest_index(window["end"], df["doy"].values)
@@ -371,7 +378,6 @@ def save_annotations_and_next(n_clicks, annotations, field_index):
         next_field_index = field_index + 1
     return (
         f"Annotations saved for field {field_id}!",
-        {"cropping_windows": [], "flooding_windows": [], "annotation_type": []},
         next_field_index,
     )
 
@@ -379,25 +385,26 @@ def save_annotations_and_next(n_clicks, annotations, field_index):
 @app.callback(
     [
         Output("selected-period-output", "children", allow_duplicate=True),
-        Output("annotations-store", "data", allow_duplicate=True),
         Output("field-index", "data", allow_duplicate=True),
     ],
     [Input("next-btn", "n_clicks")],
-    [State("annotations-store", "data"), State("field-index", "data")],
+    [State("field-index", "data")],
     prevent_initial_call=True,
 )
-def next_file(n_clicks, annotations, field_index):
+def next_file(n_clicks, field_index):
     field_id = "---"
     next_field_index = field_index
-    if field_index < len(csvs):
-        df, field_id, csv_path = read_csv(field_index, csvs)
+    if field_index < ALL_CSV_COUNT:
+        csv = csvs[field_index]
+
+        df, field_id, csv_path = read_csv(csv.get("file_path"))
+
         print(f"next field  {field_id}")
         print(f"***" * 10, "\n")
         next_field_index = field_index + 1
 
     return (
         f"Prev field {field_id}!",
-        {"cropping_windows": [], "flooding_windows": [], "annotation_type": []},
         next_field_index,
     )
 
@@ -405,19 +412,19 @@ def next_file(n_clicks, annotations, field_index):
 @app.callback(
     [
         Output("selected-period-output", "children", allow_duplicate=True),
-        Output("annotations-store", "data", allow_duplicate=True),
         Output("field-index", "data", allow_duplicate=True),
     ],
     [Input("incomplete-btn", "n_clicks")],
-    [State("annotations-store", "data"), State("field-index", "data")],
+    [State("field-index", "data")],
     prevent_initial_call=True,
 )
 def incomplete_file(n_clicks, annotations, field_index):
     field_id = "--"
     next_field_index = field_index
-    if field_index < len(csvs):
-        df, field_id, csv_path = read_csv(field_index, csvs)
+    if field_index < ALL_CSV_COUNT:
+        csv = csvs[field_index]
 
+        df, field_id, csv_path = read_csv(csv.get("file_path"))
         os.makedirs(
             os.path.dirname(csv_path.replace("input", "incomplete")), exist_ok=True
         )
@@ -429,7 +436,6 @@ def incomplete_file(n_clicks, annotations, field_index):
 
     return (
         f"incomplete field {field_id}!",
-        {"cropping_windows": [], "flooding_windows": [], "annotation_type": []},
         next_field_index,
     )
 
@@ -437,89 +443,79 @@ def incomplete_file(n_clicks, annotations, field_index):
 @app.callback(
     [
         Output("selected-period-output", "children", allow_duplicate=True),
-        Output("annotations-store", "data", allow_duplicate=True),
         Output("field-index", "data", allow_duplicate=True),
     ],
     [Input("prev-btn", "n_clicks")],
-    [State("annotations-store", "data"), State("field-index", "data")],
+    [State("field-index", "data")],
     prevent_initial_call=True,
 )
-def prev_file(n_clicks, annotations, field_index):
+def prev_file(n_clicks, field_index):
     field_id = "--"
     next_field_index = field_index
-    if field_index > len(csvs):
-        field_index = len(csvs)
-
+    if field_index > ALL_CSV_COUNT:
+        field_index = ALL_CSV_COUNT
     if field_index > 0:
-        df, field_id, csv_path = read_csv(field_index - 1, csvs)
+        csv = csvs[field_index - 1]
+
+        df, field_id, csv_path = read_csv(csv.get("file_path"))
 
         print(f"prev field  {field_id}")
         print(f"***" * 10, "\n")
 
-        # Move to the next field
         next_field_index -= 1
     return (
         f"Prev field {field_id}!",
-        {"cropping_windows": [], "flooding_windows": [], "annotation_type": []},
         next_field_index,
     )
 
 
 @app.callback(
-    Output("annotations-store", "data"),
+    Output("field-index", "data", allow_duplicate=True),
     [
         Input("mark-cropping-window-btn", "n_clicks"),
         Input("mark-flooding-window-btn", "n_clicks"),
     ],
     [
         State("ndvi-time-series", "selectedData"),
-        State("annotations-store", "data"),
         State("field-index", "data"),
     ],
     prevent_initial_call=True,
 )
-def register_window(
-    cropping_clicks, flooding_clicks, selectedData, annotations, field_index
-):
+def register_window(cropping_clicks, flooding_clicks, selectedData, field_index):
     ctx = callback_context
 
     if ctx.triggered and selectedData and selectedData["range"]["x"]:
         start_date, end_date = selectedData["range"]["x"]
         window = {"start": start_date, "end": end_date}
-        day_difference = int(end_date) - int(start_date)
-
-        # period_output = f"Selected period: {day_difference} days"
+        csv = csvs[field_index]
 
         if ctx.triggered[0]["prop_id"] == "mark-cropping-window-btn.n_clicks":
-            annotations["cropping_windows"].append(window)
-            annotations["annotation_type"].append("cropping_windows")
+            window["type"] = "cropping_windows"
         elif ctx.triggered[0]["prop_id"] == "mark-flooding-window-btn.n_clicks":
-            annotations["flooding_windows"].append(window)
-            annotations["annotation_type"].append("flooding_windows")
-    return annotations
+            window["type"] = "flooding_windows"
+        csv["annotations"].append(window)
+    return field_index
 
 
 @app.callback(
-    Output("annotations-store", "data", allow_duplicate=True),
+    Output("field-index", "data", allow_duplicate=True),
     [
         Input("rm-last-window-btn", "n_clicks"),
     ],
     [
-        State("annotations-store", "data"),
+        State("field-index", "data"),
     ],
     prevent_initial_call=True,
 )
-def remove_last_window(n_clicks, annotations):
+def remove_last_window(n_clicks, field_index):
     if n_clicks is None:
         return dash.no_update
+    csv = csvs[field_index]
 
-    annotation_type = annotations.get("annotation_type")
-    if annotation_type and len(annotation_type):
-        last_annotation = annotation_type[-1]
-        annotations[last_annotation].pop()
-        annotations["annotation_type"].pop()
+    if len(csv["annotations"]) > 0:
+        csv["annotations"].pop()
 
-    return annotations
+    return field_index
 
 
 @app.callback(

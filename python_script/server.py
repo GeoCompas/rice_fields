@@ -543,17 +543,19 @@ def prev_file(n_clicks, field_index):
 )
 def register_window(cropping_clicks, flooding_clicks, selectedData, field_index):
     ctx = callback_context
+    try:
+        if ctx.triggered and selectedData and selectedData["range"]["x"]:
+            start_date, end_date = selectedData["range"]["x"]
+            window = {"start": start_date, "end": end_date}
+            csv = csvs[field_index]
 
-    if ctx.triggered and selectedData and selectedData["range"]["x"]:
-        start_date, end_date = selectedData["range"]["x"]
-        window = {"start": start_date, "end": end_date}
-        csv = csvs[field_index]
-
-        if ctx.triggered[0]["prop_id"] == "mark-cropping-window-btn.n_clicks":
-            window["type"] = "cropping_windows"
-        elif ctx.triggered[0]["prop_id"] == "mark-flooding-window-btn.n_clicks":
-            window["type"] = "flooding_windows"
-        csv["annotations"].append(window)
+            if ctx.triggered[0]["prop_id"] == "mark-cropping-window-btn.n_clicks":
+                window["type"] = "cropping_windows"
+            elif ctx.triggered[0]["prop_id"] == "mark-flooding-window-btn.n_clicks":
+                window["type"] = "flooding_windows"
+            csv["annotations"].append(window)
+    except Exception as ex:
+        print(ex)
     return field_index
 
 
@@ -578,40 +580,41 @@ def remove_last_window(n_clicks, field_index):
     return field_index
 
 
-@app.callback(
-    [
-        Output("image_tooltip", "show"),
-        Output("image_tooltip", "bbox"),
-        Output("image_tooltip", "children", allow_duplicate=True),
-        Output("tooltip-interval", "n_intervals"),
-    ],
-    [Input("ndvi-time-series", "clickData"), Input("tooltip-interval", "n_intervals")],
-    State("field-index", "data"),
-    prevent_initial_call=True,
-)
-def display_click(clickData, n_intervals, field_index):
-    ctx = callback_context
-
-    if not ctx.triggered:
-        return [False, {}, None, dash.no_update]
-
-    if ctx.triggered[0]["prop_id"] == "ndvi-time-series.clickData" and clickData:
-        click_point = clickData["points"][0]
-        date_clicked = click_point["x"]
-        bbox = {
-            "left": click_point["x"],
-            "top": click_point["y"],
-            "width": 100,
-            "height": 50,
-        }
-        children = f"Clicked date: {date_clicked}"
-        return [True, bbox, children, 0]
-    elif ctx.triggered[0]["prop_id"] == "tooltip-interval":
-        # Timeout occurred, hide tooltip
-        return [False, {}, None, dash.no_update]
-
-    # Return a default tuple to avoid returning None
-    return [False, {}, None, dash.no_update]
+#
+# @app.callback(
+#     [
+#         Output("image_tooltip", "show"),
+#         Output("image_tooltip", "bbox"),
+#         Output("image_tooltip", "children", allow_duplicate=True),
+#         Output("tooltip-interval", "n_intervals"),
+#     ],
+#     [Input("ndvi-time-series", "clickData"), Input("tooltip-interval", "n_intervals")],
+#     State("field-index", "data"),
+#     prevent_initial_call=True,
+# )
+# def display_click(clickData, n_intervals, field_index):
+#     ctx = callback_context
+#
+#     if not ctx.triggered:
+#         return [False, {}, None, dash.no_update]
+#
+#     if ctx.triggered[0]["prop_id"] == "ndvi-time-series.clickData" and clickData:
+#         click_point = clickData["points"][0]
+#         date_clicked = click_point["x"]
+#         bbox = {
+#             "left": click_point["x"],
+#             "top": click_point["y"],
+#             "width": 100,
+#             "height": 50,
+#         }
+#         children = f"Clicked date: {date_clicked}"
+#         return [True, bbox, children, 0]
+#     elif ctx.triggered[0]["prop_id"] == "tooltip-interval":
+#         # Timeout occurred, hide tooltip
+#         return [False, {}, None, dash.no_update]
+#
+#     # Return a default tuple to avoid returning None
+#     return [False, {}, None, dash.no_update]
 
 
 if __name__ == "__main__":

@@ -475,7 +475,7 @@ def next_file(n_clicks, field_index):
     [State("field-index", "data")],
     prevent_initial_call=True,
 )
-def incomplete_file(n_clicks, annotations, field_index):
+def incomplete_file(n_clicks, field_index):
     field_id = "--"
     next_field_index = field_index
     if field_index < ALL_CSV_COUNT:

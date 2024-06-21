@@ -20,10 +20,12 @@ def adjust_doy_column(doy_column):
     """
     # Find the index where the values switch from the first range (5 to 350) to the second range (5 to 50)
     switch_index = np.argmax(np.diff(doy_column) < 0) + 1
-
-    # Adjust values after the switch to account for the transition to the next year
+    max_value = doy_column.max()
     adjusted_doy_column = np.array(doy_column)
-    adjusted_doy_column[switch_index:] += 365
+
+    if max_value < 366:
+        # Adjust values after the switch to account for the transition to the next year
+        adjusted_doy_column[switch_index:] += 365
 
     return adjusted_doy_column
 

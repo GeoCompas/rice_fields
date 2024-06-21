@@ -30,31 +30,69 @@ def adjust_doy_column(doy_column):
     return adjusted_doy_column
 
 
-def render_spectral_info_on_field(csv):
-    df = pd.read_csv(csv)
-    if "doy" not in df.columns:
-        raise ValueError("The DataFrame must contain a 'doy' column.")
-    else:
-        df["doy"] = adjust_doy_column(df["doy"])
-    field_id = csv.split("/")[-1].split("_")[0]
-    return df, field_id, csv
+def ydict2windows(y_list, window_type):
+    windows = []
+    try:
+        start_date = None
+        for i, item in enumerate(y_list):
+            doy = item["doy"]
+            y_ph = item["val"]
+
+            if not pd.isna(y_ph):
+                if start_date is None:
+                    start_date = doy
+            else:
+                if start_date is not None:
+                    end_date = y_list[i - 1]["doy"]
+                    windows.append(
+                        {"start": start_date, "end": end_date, "type": window_type}
+                    )
+                    start_date = None
+
+        # check windows close
+        if start_date is not None:
+            end_date = y_list[-1]["doy"]
+            windows.append({"start": start_date, "end": end_date, "type": window_type})
+    except Exception as ex:
+        print(ex)
+    return windows
 
 
-def read_csv(csv_):
+def read_csv(csv_path):
     # Load the data for the current field
-    df, field_id, csv_path = render_spectral_info_on_field(csv_)
-
-    # Ensure 'doy', 'y_ph', and 'y_fd' columns are present
+    has_error = False
+    annotations = []
+    df = pd.read_csv(csv_path)
+    # get old annotations
     if "doy" not in df.columns:
-        raise ValueError("The DataFrame must contain a 'doy' column.")
+        has_error = True
+        print(csv_path, "does not contain doy column")
+    df["doy"] = adjust_doy_column(df["doy"])
+    # get old annotations
+    if "y_ph" in df.columns and not has_error:
+        df_ph = df[["doy", "y_ph"]].copy()
+        df_ph["val"] = df_ph["y_ph"]
+        annotations += ydict2windows(
+            df_ph.to_dict(orient="records"), "cropping_windows"
+        )
+    if "y_fd" in df.columns and not has_error:
+        df_fd = df[["doy", "y_fd"]].copy()
+        df_fd["val"] = df_fd["y_fd"]
+        annotations += ydict2windows(
+            df_fd.to_dict(orient="records"), "flooding_windows"
+        )
 
-    # Initialize y_ph and y_fd with NaN if they don't already exist
-    if "y_ph" not in df.columns:
-        df["y_ph"] = np.nan
-    if "y_fd" not in df.columns:
-        df["y_fd"] = np.nan
-    return df, field_id, csv_path
+    # reset file
+    df["y_ph"] = np.nan
+    df["y_fd"] = np.nan
+    output = {"annotations": annotations, "data": df, "has_error": has_error}
 
+    return output
+
+
+## ==================
+## APP
+## ==================
 
 data_pth = os.getenv("DATA_PATH", "data")
 
@@ -66,17 +104,25 @@ files_incomplete = [
     for f in glob(f"{data_pth}/incomplete/**/*.csv")
 ]
 all_csv = [f for f in glob(f"{data_pth}/input/**/*.csv")]
-csvs = [
-    {"file_path": f, "annotations": []}
+csvs_filter = [
+    {
+        "file_path": f,
+        "folder_id": f.split("/")[-2],
+        "field_id": f.split("/")[-1].split("_")[0],
+        **read_csv(f),
+    }
     for f in all_csv
     if f not in [*files_annotated, *files_incomplete]
 ]
+# filter error csv
+csvs = [item for item in csvs_filter if not item.get("has_error")]
 
 print("=" * 20)
 print("Files input: ", len(all_csv))
 print("Files annotated: ", len(files_annotated))
 print("Files incomplete: ", len(files_incomplete))
-print("Files filter: ", len(csvs))
+print("Files filter: ", len(csvs_filter))
+print("Files no error: ", len(csvs))
 print("=" * 20)
 
 ALL_CSV_COUNT = len(csvs)
@@ -105,7 +151,8 @@ app.layout = html.Div(
             config={"staticPlot": False, "scrollZoom": True},
             clear_on_unhover=True,
         ),
-        html.Div(id="selected-period-output"),  # To display selected period
+        html.Div(id="selected-period-output"),
+        # To display selected period
         dcc.Store(
             id="field-index", data=0
         ),  # To keep track of which field is being shown
@@ -151,7 +198,10 @@ def update_graph(field_index, ndvi_data_store):
         return go.Figure()  # Return an empty figure if no more CSVs are left
 
     csv = csvs[field_index]
-    df, field_id, folder_id = render_spectral_info_on_field(csv.get("file_path"))
+    df_: pd.DataFrame = csv.get("data")
+    df = df_.copy()
+    field_id = csv.get("field_id")
+    folder_id = csv.get("folder_id")
     annotations = csv.get("annotations", [])
 
     df["s2_ndvi_smoothed"] = savgol_filter(df["s2_ndvi"], 10, 3)
@@ -200,7 +250,9 @@ def update_graph(field_index, ndvi_data_store):
         ]
     )
     fig.update_traces(marker_size=8)
-    title_text = f"Field:\t  {folder_id.split('/')[-2]}/{field_id} ---> ({field_index+1} / {ALL_CSV_COUNT })"
+    title_text = (
+        f"Field:\t  {folder_id}/{field_id} ---> ({field_index + 1} / {ALL_CSV_COUNT})"
+    )
 
     fig.update_layout(
         title=title_text,
@@ -314,12 +366,14 @@ def update_graph(field_index, ndvi_data_store):
 def save_annotations_and_next(n_clicks, field_index):
     field_id = "---"
     next_field_index = field_index
-    csv_annotation = []
     if field_index < ALL_CSV_COUNT:
         csv = csvs[field_index]
 
-        df, field_id, csv_path = read_csv(csv.get("file_path"))
-        csv_annotation = csv.get("annotations", [])
+        df: pd.DataFrame = csv.get("data")
+        field_id = csv.get("field_id")
+        file_path = csv.get("file_path")
+        annotations = csv.get("annotations", [])
+
         print(f"Processing annotations for field {field_id}")
 
         # Helper function to find the closest index
@@ -327,10 +381,10 @@ def save_annotations_and_next(n_clicks, field_index):
             return (np.abs(array - value)).argmin()
 
         cropping_windows = [
-            i for i in csv_annotation if i.get("type") == "cropping_windows"
+            i for i in annotations if i.get("type") == "cropping_windows"
         ]
         flooding_windows = [
-            i for i in csv_annotation if i.get("type") == "flooding_windows"
+            i for i in annotations if i.get("type") == "flooding_windows"
         ]
 
         # Process each cropping window for y_ph
@@ -372,8 +426,10 @@ def save_annotations_and_next(n_clicks, field_index):
                 f"Updated y_fd from {df['doy'].iloc[start_idx]} to {df['doy'].iloc[end_idx]}"
             )
 
-        os.makedirs(os.path.dirname(csv_path.replace("input", "output")), exist_ok=True)
-        df.to_csv(csv_path.replace("/input/", "/output/"), index=False)
+        os.makedirs(
+            os.path.dirname(file_path.replace("input", "output")), exist_ok=True
+        )
+        df.to_csv(file_path.replace("/input/", "/output/"), index=False)
         print(f"Annotations for field {field_id} saved to CSV")
         print(f"***" * 10, "\n")
 
@@ -398,8 +454,7 @@ def next_file(n_clicks, field_index):
     next_field_index = field_index
     if field_index < ALL_CSV_COUNT:
         csv = csvs[field_index]
-
-        df, field_id, csv_path = read_csv(csv.get("file_path"))
+        field_id = csv.get("field_id")
 
         print(f"next field  {field_id}")
         print(f"***" * 10, "\n")
@@ -426,11 +481,14 @@ def incomplete_file(n_clicks, annotations, field_index):
     if field_index < ALL_CSV_COUNT:
         csv = csvs[field_index]
 
-        df, field_id, csv_path = read_csv(csv.get("file_path"))
+        df: pd.DataFrame = csv.get("data")
+        field_id = csv.get("field_id")
+        file_path = csv.get("file_path")
+
         os.makedirs(
-            os.path.dirname(csv_path.replace("input", "incomplete")), exist_ok=True
+            os.path.dirname(file_path.replace("input", "incomplete")), exist_ok=True
         )
-        df.to_csv(csv_path.replace("/input/", "/incomplete/"), index=False)
+        df.to_csv(file_path.replace("/input/", "/incomplete/"), index=False)
         print(f"Incomplete field {field_id} saved to CSV")
         print(f"***" * 10, "\n")
 
@@ -459,7 +517,7 @@ def prev_file(n_clicks, field_index):
     if field_index > 0:
         csv = csvs[field_index - 1]
 
-        df, field_id, csv_path = read_csv(csv.get("file_path"))
+        field_id = csv.get("field_id")
 
         print(f"prev field  {field_id}")
         print(f"***" * 10, "\n")

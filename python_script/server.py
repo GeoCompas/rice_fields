@@ -103,7 +103,8 @@ files_incomplete = [
     f.replace("/incomplete/", "/input/")
     for f in glob(f"{data_pth}/incomplete/**/*.csv")
 ]
-all_csv = [f for f in glob(f"{data_pth}/input/**/*.csv")]
+all_csv = sorted([f for f in glob(f"{data_pth}/input/**/*.csv")])
+
 csvs_filter = [
     {
         "file_path": f,

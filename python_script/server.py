@@ -219,7 +219,7 @@ def update_graph(field_index, ndvi_data_store):
                 mode="lines+markers",
                 name="S2 MNDWI Smoothed",
                 line=dict(color="red"),
-                opacity=0.7, # opacity
+                opacity=0.7,  # opacity
             ),
             go.Scatter(
                 x=df["doy"],
@@ -277,83 +277,60 @@ def update_graph(field_index, ndvi_data_store):
         y1=1,
         line=dict(color="black", width=0.3),
     )
-    cropping_windows = [i for i in annotations if i.get("type") == "cropping_windows"]
-    flooding_windows = [i for i in annotations if i.get("type") == "flooding_windows"]
 
     # Logic to add planting and harvest windows to the figure
-    for window in cropping_windows:
+    for k, window in enumerate(annotations):
         x0 = round(float(window["start"]))
         x1 = round(float(window["end"]))
         last_period = (x1 - x0) // 4
         mid_point = (window["start"] + window["end"]) / 2
 
+        type_windows = window.get("type")
+        color = "green" if type_windows == "cropping_windows" else "blue"
+        y_01 = -5 if type_windows == "cropping_windows" else -3
         fig.add_vrect(
             x0=x0,
             x1=x1,
-            fillcolor="green",
+            fillcolor=color,
             opacity=0.15,
         )
-        # second crop
-        fig.add_vrect(
-            x0=x1 - last_period,
-            x1=x1,
-            fillcolor="green",
-            opacity=0.15,
-        )
+        if type_windows == "cropping_windows":
+            # second crop
+            fig.add_vrect(
+                x0=x1 - last_period,
+                x1=x1,
+                fillcolor="green",
+                opacity=0.15,
+            )
+
         fig.add_shape(
             type="line",
             x0=x0,
-            y0=-5,
+            y0=y_01,
             x1=x1,
-            y1=-5,
-            line=dict(color="green", width=1),
+            y1=y_01,
+            line=dict(color=color, width=1),
         )
-        # Calculate the midpoint for the text annotation
-
-        # Adding text annotation for the duration of the cropping window
         fig.add_annotation(
             x=mid_point,
-            y=-5,
+            y=y_01,
             text=f"{int(x1 - x0)} days",
             showarrow=False,
-            font=dict(family="Arial", size=15, color="white"),
+            font=dict(family="Arial", size=12, color="white"),
             align="center",
-            bgcolor="green",
+            bgcolor=color,
             opacity=1,
         )
-
-    # Logic to add flooding windows to the figure
-    for window in flooding_windows:
-        x0 = round(float(window["start"]))
-        x1 = round(float(window["end"]))
-        mid_point = (window["start"] + window["end"]) / 2
-
-        fig.add_vrect(
-            x0=x0,
-            x1=x1,
-            fillcolor="blue",
-            opacity=0.15,
-        )
-        fig.add_shape(
-            type="line",
-            x0=x0,
-            y0=-2,
-            x1=x1,
-            y1=-2,
-            line=dict(color="blue", width=1),
-        )
-        # Calculate the midpoint for the text annotation
-
-        # Adding text annotation for the duration of the cropping window
         fig.add_annotation(
             x=mid_point,
-            y=-2,
-            text=f"{int(x1 - x0)} days",
+            y=10,
+            text=f"RM-{k}",
             showarrow=False,
-            font=dict(family="Arial", size=15, color="white"),
+            font=dict(family="Arial", size=12, color="white"),
             align="center",
-            bgcolor="blue",
+            bgcolor="red",
             opacity=1,
+            captureevents=True,
         )
 
     return fig
@@ -585,41 +562,22 @@ def remove_last_window(n_clicks, field_index):
     return field_index
 
 
-#
-# @app.callback(
-#     [
-#         Output("image_tooltip", "show"),
-#         Output("image_tooltip", "bbox"),
-#         Output("image_tooltip", "children", allow_duplicate=True),
-#         Output("tooltip-interval", "n_intervals"),
-#     ],
-#     [Input("ndvi-time-series", "clickData"), Input("tooltip-interval", "n_intervals")],
-#     State("field-index", "data"),
-#     prevent_initial_call=True,
-# )
-# def display_click(clickData, n_intervals, field_index):
-#     ctx = callback_context
-#
-#     if not ctx.triggered:
-#         return [False, {}, None, dash.no_update]
-#
-#     if ctx.triggered[0]["prop_id"] == "ndvi-time-series.clickData" and clickData:
-#         click_point = clickData["points"][0]
-#         date_clicked = click_point["x"]
-#         bbox = {
-#             "left": click_point["x"],
-#             "top": click_point["y"],
-#             "width": 100,
-#             "height": 50,
-#         }
-#         children = f"Clicked date: {date_clicked}"
-#         return [True, bbox, children, 0]
-#     elif ctx.triggered[0]["prop_id"] == "tooltip-interval":
-#         # Timeout occurred, hide tooltip
-#         return [False, {}, None, dash.no_update]
-#
-#     # Return a default tuple to avoid returning None
-#     return [False, {}, None, dash.no_update]
+@app.callback(
+    Output("field-index", "data", allow_duplicate=True),
+    [Input("ndvi-time-series", "clickAnnotationData")],
+    [State("field-index", "data")],
+    prevent_initial_call=True,
+)
+def display_double_click_data(clickAnnotationData, field_index):
+    if clickAnnotationData is not None:
+        try:
+            text = clickAnnotationData["annotation"]["text"]
+            index_annotation = int(text.split("-")[1])
+            csv = csvs[field_index]
+            csv["annotations"].pop(index_annotation)
+        except Exception as ex:
+            print(ex)
+    return field_index
 
 
 if __name__ == "__main__":

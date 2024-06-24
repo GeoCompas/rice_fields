@@ -129,8 +129,19 @@ print("=" * 20)
 ALL_CSV_COUNT = len(csvs)
 
 app = Dash(__name__)
-btn_style = {"marginLeft": "5px", "marginRight": "5px", "padding": "3px 8px","borderRadius": "5px"}
-btn_style_lg = {**btn_style, "padding": "5px", "fontSize": "15px","border": "4px solid"}
+btn_style = {
+    "fontSize": "15px",
+    "marginLeft": "5px",
+    "marginRight": "5px",
+    "padding": "3px 8px",
+    "borderRadius": "5px",
+}
+btn_style_lg = {
+    **btn_style,
+    "padding": "5px",
+    "fontSize": "18px",
+    "border": "4px solid",
+}
 
 # Simple layout with a Plotly graph and buttons to confirm selections
 app.layout = html.Div(
@@ -172,14 +183,14 @@ app.layout = html.Div(
             "Mark Cropping Window",
             id="mark-cropping-window-btn",
             n_clicks=0,
-            style={**btn_style_lg,"borderColor": "green"},
+            style={**btn_style_lg, "borderColor": "green"},
         ),
         html.Button(
             "Mark Flooding Window",
             id="mark-flooding-window-btn",
             n_clicks=0,
-            style={**btn_style_lg,"borderColor": "blue"},
-        )
+            style={**btn_style_lg, "borderColor": "blue"},
+        ),
     ],
     style={"width": "100%", "textAlign": "center"},
 )
@@ -535,6 +546,7 @@ def register_window(cropping_clicks, flooding_clicks, selectedData, field_index)
     except Exception as ex:
         print(ex)
     return field_index
+
 
 #
 # @app.callback(

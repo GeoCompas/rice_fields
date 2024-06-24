@@ -323,13 +323,13 @@ def update_graph(field_index, ndvi_data_store):
         )
         fig.add_annotation(
             x=mid_point,
-            y=10,
+            y=10 if type_windows == "cropping_windows" else 12,
             text=f"RM-{k}",
             showarrow=False,
             font=dict(family="Arial", size=12, color="white"),
             align="center",
-            bgcolor="red",
-            opacity=1,
+            bgcolor=color,
+            opacity=0.7,
             captureevents=True,
         )
 

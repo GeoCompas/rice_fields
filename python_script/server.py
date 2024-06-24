@@ -287,7 +287,7 @@ def update_graph(field_index, ndvi_data_store):
 
         type_windows = window.get("type")
         color = "green" if type_windows == "cropping_windows" else "blue"
-        y_01 = -5 if type_windows == "cropping_windows" else -3
+        y_01 = -25 if type_windows == "cropping_windows" else -28
         fig.add_vrect(
             x0=x0,
             x1=x1,

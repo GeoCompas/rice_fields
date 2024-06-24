@@ -129,7 +129,9 @@ print("=" * 20)
 ALL_CSV_COUNT = len(csvs)
 
 app = Dash(__name__)
-btn_style = {"marginLeft": "5px", "marginRight": "5px", "padding": "3px"}
+btn_style = {"marginLeft": "5px", "marginRight": "5px", "padding": "3px 8px","borderRadius": "5px"}
+btn_style_lg = {**btn_style, "padding": "5px", "fontSize": "15px","border": "4px solid"}
+
 # Simple layout with a Plotly graph and buttons to confirm selections
 app.layout = html.Div(
     [
@@ -170,20 +172,14 @@ app.layout = html.Div(
             "Mark Cropping Window",
             id="mark-cropping-window-btn",
             n_clicks=0,
-            style=btn_style,
+            style={**btn_style_lg,"borderColor": "green"},
         ),
         html.Button(
             "Mark Flooding Window",
             id="mark-flooding-window-btn",
             n_clicks=0,
-            style=btn_style,
-        ),
-        html.Button(
-            "-- remove last annotation--",
-            id="rm-last-window-btn",
-            n_clicks=0,
-            style=btn_style,
-        ),
+            style={**btn_style_lg,"borderColor": "blue"},
+        )
     ],
     style={"width": "100%", "textAlign": "center"},
 )
@@ -540,26 +536,26 @@ def register_window(cropping_clicks, flooding_clicks, selectedData, field_index)
         print(ex)
     return field_index
 
-
-@app.callback(
-    Output("field-index", "data", allow_duplicate=True),
-    [
-        Input("rm-last-window-btn", "n_clicks"),
-    ],
-    [
-        State("field-index", "data"),
-    ],
-    prevent_initial_call=True,
-)
-def remove_last_window(n_clicks, field_index):
-    if n_clicks is None:
-        return dash.no_update
-    csv = csvs[field_index]
-
-    if len(csv["annotations"]) > 0:
-        csv["annotations"].pop()
-
-    return field_index
+#
+# @app.callback(
+#     Output("field-index", "data", allow_duplicate=True),
+#     [
+#         Input("rm-last-window-btn", "n_clicks"),
+#     ],
+#     [
+#         State("field-index", "data"),
+#     ],
+#     prevent_initial_call=True,
+# )
+# def remove_last_window(n_clicks, field_index):
+#     if n_clicks is None:
+#         return dash.no_update
+#     csv = csvs[field_index]
+#
+#     if len(csv["annotations"]) > 0:
+#         csv["annotations"].pop()
+#
+#     return field_index
 
 
 @app.callback(

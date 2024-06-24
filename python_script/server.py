@@ -218,6 +218,7 @@ def update_graph(field_index, ndvi_data_store):
                 mode="lines+markers",
                 name="S2 MNDWI Smoothed",
                 line=dict(color="red"),
+                opacity=0.7, # opacity
             ),
             go.Scatter(
                 x=df["doy"],
@@ -232,6 +233,7 @@ def update_graph(field_index, ndvi_data_store):
                 mode="lines+markers",
                 name="S2 NDWI Smoothed",
                 line=dict(color="blue"),
+                opacity=0.3,  # opacity
             ),
             go.Scatter(
                 x=df["doy"],
@@ -239,6 +241,7 @@ def update_graph(field_index, ndvi_data_store):
                 mode="lines+markers",
                 name="S1 VH Smoothed",
                 line=dict(color="orange"),
+                # opacity=0.5,
             ),
             go.Scatter(
                 x=df["doy"],
@@ -246,6 +249,7 @@ def update_graph(field_index, ndvi_data_store):
                 mode="lines+markers",
                 name="S1 VV Smoothed",
                 line=dict(color="purple"),
+                # opacity=0.5,
             ),
         ]
     )

@@ -90,6 +90,10 @@ def read_csv(csv_path):
     return output
 
 
+# Helper function to find the closest index
+def find_closest_index(value, array):
+    return (np.abs(array - value)).argmin()
+
 ## ==================
 ## APP
 ## ==================
@@ -287,8 +291,13 @@ def update_graph(field_index, ndvi_data_store):
 
     # Logic to add planting and harvest windows to the figure
     for k, window in enumerate(annotations):
-        x0 = round(float(window["start"]))
-        x1 = round(float(window["end"]))
+        # use the doy most near in dataset
+        start_idx = find_closest_index(window["start"], df["doy"].values)
+        end_idx = find_closest_index(window["end"], df["doy"].values)
+
+        x0 = df["doy"][start_idx]
+        x1 = df["doy"][end_idx]
+
         last_period = (x1 - x0) // 4
         mid_point = (window["start"] + window["end"]) / 2
 
@@ -364,10 +373,6 @@ def save_annotations_and_next(n_clicks, field_index):
         annotations = csv.get("annotations", [])
 
         print(f"Processing annotations for field {field_id}")
-
-        # Helper function to find the closest index
-        def find_closest_index(value, array):
-            return (np.abs(array - value)).argmin()
 
         cropping_windows = [
             i for i in annotations if i.get("type") == "cropping_windows"

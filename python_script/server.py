@@ -62,12 +62,14 @@ def read_csv(csv_path):
     # Load the data for the current field
     has_error = False
     annotations = []
-    df = pd.read_csv(csv_path)
+    df: pd.DataFrame = pd.read_csv(csv_path)
     # get old annotations
     if "doy" not in df.columns:
         has_error = True
         print(csv_path, "does not contain doy column")
     df["doy"] = adjust_doy_column(df["doy"])
+    df.drop_duplicates(subset=["doy"], inplace=True)
+    df.reset_index(drop=True, inplace=True)
     # get old annotations
     if "y_ph" in df.columns and not has_error:
         df_ph = df[["doy", "y_ph"]].copy()
@@ -85,7 +87,7 @@ def read_csv(csv_path):
     # reset file
     df["y_ph"] = np.nan
     df["y_fd"] = np.nan
-    output = {"annotations": annotations, "data": df, "has_error": has_error}
+    output = {"annotations": annotations, "data": df.copy(), "has_error": has_error}
 
     return output
 
@@ -187,6 +189,12 @@ app.layout = html.Div(
         html.Button(
             "Save file with incomplete data ",
             id="incomplete-btn",
+            n_clicks=0,
+            style=btn_style,
+        ),
+        html.Button(
+            "remove last window ",
+            id="rm-last-window-btn",
             n_clicks=0,
             style=btn_style,
         ),
@@ -546,26 +554,25 @@ def register_window(window_clicks, selectedData, field_index):
     return field_index
 
 
-#
-# @app.callback(
-#     Output("field-index", "data", allow_duplicate=True),
-#     [
-#         Input("rm-last-window-btn", "n_clicks"),
-#     ],
-#     [
-#         State("field-index", "data"),
-#     ],
-#     prevent_initial_call=True,
-# )
-# def remove_last_window(n_clicks, field_index):
-#     if n_clicks is None:
-#         return dash.no_update
-#     csv = csvs[field_index]
-#
-#     if len(csv["annotations"]) > 0:
-#         csv["annotations"].pop()
-#
-#     return field_index
+@app.callback(
+    Output("field-index", "data", allow_duplicate=True),
+    [
+        Input("rm-last-window-btn", "n_clicks"),
+    ],
+    [
+        State("field-index", "data"),
+    ],
+    prevent_initial_call=True,
+)
+def remove_last_window(n_clicks, field_index):
+    if n_clicks is None:
+        return dash.no_update
+    csv = csvs[field_index]
+
+    if len(csv["annotations"]) > 0:
+        csv["annotations"].pop()
+
+    return field_index
 
 
 @app.callback(

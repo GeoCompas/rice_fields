@@ -152,16 +152,10 @@ btn_style_lg = {
 app.layout = html.Div(
     [
         html.Button(
-            "Mark Cropping Window",
-            id="mark-cropping-window-btn",
+            "Mark Window",
+            id="mark-window-btn",
             n_clicks=0,
-            style={**btn_style_lg, "borderColor": "green"},
-        ),
-        html.Button(
-            "Mark Flooding Window",
-            id="mark-flooding-window-btn",
-            n_clicks=0,
-            style={**btn_style_lg, "borderColor": "blue"},
+            style={**btn_style_lg, "borderColor": "gray"},
         ),
         html.Button(
             " -- Save and Next --",
@@ -527,8 +521,7 @@ def prev_file(n_clicks, field_index):
 @app.callback(
     Output("field-index", "data", allow_duplicate=True),
     [
-        Input("mark-cropping-window-btn", "n_clicks"),
-        Input("mark-flooding-window-btn", "n_clicks"),
+        Input("mark-window-btn", "n_clicks"),
     ],
     [
         State("ndvi-time-series", "selectedData"),
@@ -536,18 +529,17 @@ def prev_file(n_clicks, field_index):
     ],
     prevent_initial_call=True,
 )
-def register_window(cropping_clicks, flooding_clicks, selectedData, field_index):
+def register_window(window_clicks, selectedData, field_index):
     ctx = callback_context
     try:
         if ctx.triggered and selectedData and selectedData["range"]["x"]:
             start_date, end_date = selectedData["range"]["x"]
             window = {"start": start_date, "end": end_date}
             csv = csvs[field_index]
-
-            if ctx.triggered[0]["prop_id"] == "mark-cropping-window-btn.n_clicks":
-                window["type"] = "cropping_windows"
-            elif ctx.triggered[0]["prop_id"] == "mark-flooding-window-btn.n_clicks":
-                window["type"] = "flooding_windows"
+            type_ = "cropping_windows"
+            if (end_date - start_date) <= 60:
+                type_ = "flooding_windows"
+            window["type"] = type_
             csv["annotations"].append(window)
     except Exception as ex:
         print(ex)

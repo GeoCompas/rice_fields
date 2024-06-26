@@ -1,6 +1,6 @@
 # temporal events in rice fields
 
-![image](./image.png)
+![image](./image.gif)
 
 ### Add csv files
 Place your CSV files containing temporal event data in the following directory:
@@ -63,3 +63,8 @@ In some cases,
 sudo chmod -R 777 ./data
 
 ```
+
+### Shortcuts
+
+- `a`: create windows
+- `d`: Save and Next

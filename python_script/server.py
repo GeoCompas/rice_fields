@@ -94,6 +94,7 @@ def read_csv(csv_path):
 def find_closest_index(value, array):
     return (np.abs(array - value)).argmin()
 
+
 ## ==================
 ## APP
 ## ==================
@@ -150,19 +151,23 @@ btn_style_lg = {
 # Simple layout with a Plotly graph and buttons to confirm selections
 app.layout = html.Div(
     [
-        html.Button("Prev file", id="prev-btn", n_clicks=0, style=btn_style),
         html.Button(
-            " -- Save Annotations and Next --",
+            "Mark Cropping Window",
+            id="mark-cropping-window-btn",
+            n_clicks=0,
+            style={**btn_style_lg, "borderColor": "green"},
+        ),
+        html.Button(
+            "Mark Flooding Window",
+            id="mark-flooding-window-btn",
+            n_clicks=0,
+            style={**btn_style_lg, "borderColor": "blue"},
+        ),
+        html.Button(
+            " -- Save and Next --",
             id="confirm-btn",
             n_clicks=0,
-            style=btn_style,
-        ),
-        html.Button("Next file", id="next-btn", n_clicks=0, style=btn_style),
-        html.Button(
-            "Save file with incomplete data ",
-            id="incomplete-btn",
-            n_clicks=0,
-            style=btn_style,
+            style={**btn_style_lg, "marginLeft": "30px"},
         ),
         dcc.Graph(
             id="ndvi-time-series",
@@ -183,17 +188,13 @@ app.layout = html.Div(
             n_intervals=0,
             max_intervals=1,  # This makes sure it only runs once after activation
         ),
+        html.Button("Prev file", id="prev-btn", n_clicks=0, style=btn_style),
+        html.Button("Next file", id="next-btn", n_clicks=0, style=btn_style),
         html.Button(
-            "Mark Cropping Window",
-            id="mark-cropping-window-btn",
+            "Save file with incomplete data ",
+            id="incomplete-btn",
             n_clicks=0,
-            style={**btn_style_lg, "borderColor": "green"},
-        ),
-        html.Button(
-            "Mark Flooding Window",
-            id="mark-flooding-window-btn",
-            n_clicks=0,
-            style={**btn_style_lg, "borderColor": "blue"},
+            style=btn_style,
         ),
     ],
     style={"width": "100%", "textAlign": "center"},

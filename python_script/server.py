@@ -38,12 +38,12 @@ def ydict2windows(y_list, window_type):
             doy = item["doy"]
             y_ph = item["val"]
 
-            if not pd.isna(y_ph):
+            if not pd.isna(y_ph) and y_ph != 0:
                 if start_date is None:
                     start_date = doy
             else:
                 if start_date is not None:
-                    end_date = y_list[i - 1]["doy"]
+                    end_date = y_list[i]["doy"]
                     windows.append(
                         {"start": start_date, "end": end_date, "type": window_type}
                     )

@@ -68,3 +68,4 @@ sudo chmod -R 777 ./data
 
 - `a`: create windows
 - `d`: Save and Next
+- `w`: remove last window

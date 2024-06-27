@@ -26,6 +26,8 @@ def adjust_doy_column(doy_column):
     if max_value < 366:
         # Adjust values after the switch to account for the transition to the next year
         adjusted_doy_column[switch_index:] += 365
+    elif max_value == 366:
+        adjusted_doy_column[switch_index:] += 366
 
     return adjusted_doy_column
 

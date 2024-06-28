@@ -288,11 +288,12 @@ def update_graph(field_index, ndvi_data_store):
     fig.add_shape(
         type="line",
         x0=0,
-        y0=1,
+        y0=-2.5,
         x1=400,
-        y1=1,
+        y1=-2.5,
         line=dict(color="black", width=0.3),
     )
+    fig.add_shape(type="line", x0=0, y0=1, x1=400, y1=1, line=dict(color="black", width=0.3), )
 
     # Logic to add planting and harvest windows to the figure
     for k, window in enumerate(annotations):

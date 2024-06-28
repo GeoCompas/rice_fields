@@ -377,6 +377,9 @@ def save_annotations_and_next(n_clicks, field_index):
         field_id = csv.get("field_id")
         file_path = csv.get("file_path")
         annotations = csv.get("annotations", [])
+        if not annotations:
+            print(f"File {field_id}! whitout annotations")
+            return (f"File {field_id}! whitout annotations", next_field_index,)
 
         print(f"Processing annotations for field {field_id}")
 

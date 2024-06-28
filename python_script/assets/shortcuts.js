@@ -12,6 +12,12 @@ document.addEventListener('keydown', function (event) {
     case 'w':
       idButton = 'rm-last-window-btn';
       break;
+    case 'ArrowRight':
+      idButton = 'next-btn';
+      break;
+    case 'ArrowLeft':
+      idButton = 'prev-btn';
+      break;
     default:
       idButton = null
       break

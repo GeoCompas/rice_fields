@@ -215,8 +215,7 @@ def update_graph(field_index, ndvi_data_store):
         return go.Figure()  # Return an empty figure if no more CSVs are left
 
     csv = csvs[field_index]
-    df_: pd.DataFrame = csv.get("data")
-    df = df_.copy()
+    df: pd.DataFrame = csv.get("data").copy()
     field_id = csv.get("field_id")
     folder_id = csv.get("folder_id")
     annotations = csv.get("annotations", [])
@@ -226,6 +225,7 @@ def update_graph(field_index, ndvi_data_store):
     df["s1_vv_smoothed"] = savgol_filter(df["s1_vv"], 10, 3)
     df["s2_ndwi_smoothed"] = savgol_filter(df["s2_ndwi"], 10, 3)
     df["s2_mndwi_smoothed"] = savgol_filter(df["s2_mndwi"], 10, 3)
+
 
     fig = go.Figure(
         data=[
@@ -373,7 +373,7 @@ def save_annotations_and_next(n_clicks, field_index):
     if field_index < ALL_CSV_COUNT:
         csv = csvs[field_index]
 
-        df: pd.DataFrame = csv.get("data")
+        df: pd.DataFrame = csv.get("data").copy()
         field_id = csv.get("field_id")
         file_path = csv.get("file_path")
         annotations = csv.get("annotations", [])
@@ -484,7 +484,7 @@ def incomplete_file(n_clicks, field_index):
     if field_index < ALL_CSV_COUNT:
         csv = csvs[field_index]
 
-        df: pd.DataFrame = csv.get("data")
+        df: pd.DataFrame = csv.get("data").copy()
         field_id = csv.get("field_id")
         file_path = csv.get("file_path")
 

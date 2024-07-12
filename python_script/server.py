@@ -23,7 +23,7 @@ def adjust_doy_column(doy_column):
     max_value = doy_column.max()
     adjusted_doy_column = np.array(doy_column)
 
-    if 364 <= max_value < 366:
+    if 350 <= max_value < 366:
         # Adjust values after the switch to account for the transition to the next year
         adjusted_doy_column[switch_index:] += 365
     elif max_value == 366:

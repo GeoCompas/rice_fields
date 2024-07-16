@@ -19,16 +19,20 @@ def adjust_doy_column(doy_column):
     - Adjusted array or list of day of year (doy) values.
     """
     # Find the index where the values switch from the first range (5 to 350) to the second range (5 to 50)
-    switch_index = np.argmax(np.diff(doy_column) < 0) + 1
-    max_value = doy_column.max()
-    adjusted_doy_column = np.array(doy_column)
-
-    if 350 <= max_value < 366:
-        # Adjust values after the switch to account for the transition to the next year
-        adjusted_doy_column[switch_index:] += 365
-    elif max_value == 366:
-        adjusted_doy_column[switch_index:] += 366
-
+    doy_column = np.array(doy_column)
+    adjusted_doy_column = doy_column.copy()
+    year_days = 365
+    leap_year_days = 366
+    days_accumulated = 0
+    for i in range(1, len(doy_column)):
+        val = doy_column[i]
+        prev_val = doy_column[i - 1]
+        if val < prev_val:
+            if prev_val == leap_year_days:
+                days_accumulated += leap_year_days
+            else:
+                days_accumulated += year_days
+        adjusted_doy_column[i] += days_accumulated
     return adjusted_doy_column
 
 
@@ -79,17 +83,16 @@ def read_csv(csv_path):
         annotations += ydict2windows(
             df_ph.to_dict(orient="records"), "cropping_windows"
         )
-    if "y_fd" in df.columns and not has_error:
-        df_fd = df[["doy", "y_fd"]].copy()
-        df_fd["val"] = df_fd["y_fd"]
-        annotations += ydict2windows(
-            df_fd.to_dict(orient="records"), "flooding_windows"
-        )
 
     # reset file
     df["y_ph"] = np.nan
-    df["y_fd"] = np.nan
-    output = {"annotations": annotations, "data": df.copy(), "has_error": has_error}
+    output = {
+        "annotations": annotations,
+        "data": df.copy(),
+        "has_error": has_error,
+        "min": df["doy"].min(),
+        "max": df["doy"].max(),
+    }
 
     return output
 
@@ -126,6 +129,10 @@ csvs_filter = [
 ]
 # filter error csv
 csvs = [item for item in csvs_filter if not item.get("has_error")]
+# min, max
+print(csvs)
+MIN_DOY = min([i.get("min") for i in csvs]) - 10
+MAX_DOY = max([i.get("max") for i in csvs]) + 10
 
 print("=" * 20)
 print("Files input: ", len(all_csv))
@@ -226,7 +233,6 @@ def update_graph(field_index, ndvi_data_store):
     df["s2_ndwi_smoothed"] = savgol_filter(df["s2_ndwi"], 10, 3)
     df["s2_mndwi_smoothed"] = savgol_filter(df["s2_mndwi"], 10, 3)
 
-
     fig = go.Figure(
         data=[
             go.Scatter(
@@ -287,13 +293,20 @@ def update_graph(field_index, ndvi_data_store):
     # default 1
     fig.add_shape(
         type="line",
-        x0=0,
+        x0=MIN_DOY,
         y0=-2.5,
-        x1=400,
+        x1=MAX_DOY,
         y1=-2.5,
         line=dict(color="black", width=0.3),
     )
-    fig.add_shape(type="line", x0=0, y0=1, x1=400, y1=1, line=dict(color="black", width=0.3), )
+    fig.add_shape(
+        type="line",
+        x0=MIN_DOY,
+        y0=1,
+        x1=MAX_DOY,
+        y1=1,
+        line=dict(color="black", width=0.3),
+    )
 
     # Logic to add planting and harvest windows to the figure
     for k, window in enumerate(annotations):
@@ -379,15 +392,15 @@ def save_annotations_and_next(n_clicks, field_index):
         annotations = csv.get("annotations", [])
         if not annotations:
             print(f"File {field_id}! whitout annotations")
-            return (f"File {field_id}! whitout annotations", next_field_index,)
+            return (
+                f"File {field_id}! whitout annotations",
+                next_field_index,
+            )
 
         print(f"Processing annotations for field {field_id}")
 
         cropping_windows = [
             i for i in annotations if i.get("type") == "cropping_windows"
-        ]
-        flooding_windows = [
-            i for i in annotations if i.get("type") == "flooding_windows"
         ]
 
         # Process each cropping window for y_ph
@@ -409,24 +422,6 @@ def save_annotations_and_next(n_clicks, field_index):
             df.loc[start_idx:end_idx, "y_ph"] = y_ph
             print(
                 f"Updated y_ph from {df['doy'].iloc[start_idx]} to {df['doy'].iloc[end_idx]}"
-            )
-
-        # Process each flooding window for y_fd
-        for window in flooding_windows:
-            # Find the closest start and end indices
-            start_idx = find_closest_index(window["start"], df["doy"].values)
-            end_idx = find_closest_index(window["end"], df["doy"].values)
-
-            # Ensure the indices are in the correct order
-            if start_idx > end_idx:
-                start_idx, end_idx = end_idx, start_idx
-
-            y_fd = np.linspace(1.0, 0.0, end_idx - start_idx + 1)
-
-            # Update the DataFrame without overwriting previous values
-            df.loc[start_idx:end_idx, "y_fd"] = y_fd
-            print(
-                f"Updated y_fd from {df['doy'].iloc[start_idx]} to {df['doy'].iloc[end_idx]}"
             )
 
         os.makedirs(
@@ -552,7 +547,8 @@ def register_window(window_clicks, selectedData, field_index):
             csv = csvs[field_index]
             type_ = "cropping_windows"
             if (end_date - start_date) <= 60:
-                type_ = "flooding_windows"
+                pass
+                # type_ = "flooding_windows"
             window["type"] = type_
             csv["annotations"].append(window)
     except Exception as ex:

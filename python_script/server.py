@@ -21,13 +21,17 @@ def adjust_doy_column(doy_column):
     # Find the index where the values switch from the first range (5 to 350) to the second range (5 to 50)
     doy_column = np.array(doy_column)
     adjusted_doy_column = doy_column.copy()
-
+    year_days = 365
+    leap_year_days = 366
     days_accumulated = 0
     for i in range(1, len(doy_column)):
         val = doy_column[i]
         prev_val = doy_column[i - 1]
         if val < prev_val:
-            days_accumulated += prev_val
+            if prev_val == leap_year_days:
+                days_accumulated += leap_year_days
+            else:
+                days_accumulated += year_days
         adjusted_doy_column[i] += days_accumulated
     return adjusted_doy_column
 
@@ -37,7 +41,7 @@ def ydict2windows(y_list, window_type):
     try:
         start_date = None
         for i, item in enumerate(y_list):
-            doy = item["doy_custom"]
+            doy = item["doy"]
             y_ph = item["val"]
 
             if not pd.isna(y_ph) and y_ph != 0:
@@ -45,7 +49,10 @@ def ydict2windows(y_list, window_type):
                     start_date = doy
             else:
                 if start_date is not None:
-                    end_date = y_list[i]["doy_custom"]
+                    if pd.isna(y_ph):
+                        end_date = y_list[i - 1]["doy"]
+                    else:  # y_ph == 0
+                        end_date = y_list[i]["doy"]
                     windows.append(
                         {"start": start_date, "end": end_date, "type": window_type}
                     )
@@ -53,7 +60,7 @@ def ydict2windows(y_list, window_type):
 
         # check windows close
         if start_date is not None:
-            end_date = y_list[-1]["doy_custom"]
+            end_date = y_list[-1]["doy"]
             windows.append({"start": start_date, "end": end_date, "type": window_type})
     except Exception as ex:
         print("ydict2windows", ex)
@@ -69,12 +76,13 @@ def read_csv(csv_path):
     if "doy" not in df.columns:
         has_error = True
         print(csv_path, "does not contain doy column")
-    df["doy_custom"] = adjust_doy_column(df["doy"])
+    # df["doy_orig"] = df["doy"].copy()
+    df["doy"] = adjust_doy_column(df["doy"])
     df.drop_duplicates(subset=["doy"], inplace=True)
     df.reset_index(drop=True, inplace=True)
     # get old annotations
     if "y_ph" in df.columns and not has_error:
-        df_ph = df[["doy_custom", "y_ph"]].copy()
+        df_ph = df[["doy", "y_ph"]].copy()
         df_ph["val"] = df_ph["y_ph"]
         annotations += ydict2windows(
             df_ph.to_dict(orient="records"), "cropping_windows"
@@ -86,8 +94,8 @@ def read_csv(csv_path):
         "annotations": annotations,
         "data": df.copy(),
         "has_error": has_error,
-        "min": df["doy_custom"].min(),
-        "max": df["doy_custom"].max(),
+        "min": df["doy"].min(),
+        "max": df["doy"].max(),
     }
 
     return output
@@ -230,7 +238,7 @@ def update_graph(field_index, ndvi_data_store):
     fig = go.Figure(
         data=[
             go.Scatter(
-                x=df["doy_custom"],
+                x=df["doy"],
                 y=df["s2_mndwi_smoothed"] * 15,
                 mode="lines+markers",
                 name="S2 MNDWI Smoothed",
@@ -238,14 +246,14 @@ def update_graph(field_index, ndvi_data_store):
                 opacity=0.7,  # opacity
             ),
             go.Scatter(
-                x=df["doy_custom"],
+                x=df["doy"],
                 y=df["s2_ndvi_smoothed"] * 15,
                 mode="lines+markers",
                 name="S2 NDVI Smoothed",
                 line=dict(color="green"),
             ),
             go.Scatter(
-                x=df["doy_custom"],
+                x=df["doy"],
                 y=df["s2_ndwi_smoothed"] * 15,
                 mode="lines+markers",
                 name="S2 NDWI Smoothed",
@@ -253,14 +261,14 @@ def update_graph(field_index, ndvi_data_store):
                 opacity=0.3,  # opacity
             ),
             go.Scatter(
-                x=df["doy_custom"],
+                x=df["doy"],
                 y=df["s1_vh_smoothed"],
                 mode="lines+markers",
                 name="S1 VH Smoothed",
                 line=dict(color="orange"),  # opacity=0.5,
             ),
             go.Scatter(
-                x=df["doy_custom"],
+                x=df["doy"],
                 y=df["s1_vv_smoothed"],
                 mode="lines+markers",
                 name="S1 VV Smoothed",
@@ -303,11 +311,11 @@ def update_graph(field_index, ndvi_data_store):
     # Logic to add planting and harvest windows to the figure
     for k, window in enumerate(annotations):
         # use the doy most near in dataset
-        start_idx = find_closest_index(window["start"], df["doy_custom"].values)
-        end_idx = find_closest_index(window["end"], df["doy_custom"].values)
-
-        x0 = df["doy_custom"][start_idx]
-        x1 = df["doy_custom"][end_idx]
+        start_idx = find_closest_index(window["start"], df["doy"].values)
+        end_idx = find_closest_index(window["end"], df["doy"].values)
+        x0 = df["doy"][start_idx]
+        x1 = df["doy"][end_idx]
+        print(x0, x1, x1 - x0, window["type"], )
 
         last_period = (x1 - x0) // 4
         mid_point = (window["start"] + window["end"]) / 2
@@ -401,8 +409,8 @@ def save_annotations_and_next(n_clicks, field_index):
             window["harvest_date_0"] = window["end"]
 
             # Find the closest start and end indices
-            start_idx = find_closest_index(window["start"], df["doy_custom"].values)
-            end_idx = find_closest_index(window["end"], df["doy_custom"].values)
+            start_idx = find_closest_index(window["start"], df["doy"].values)
+            end_idx = find_closest_index(window["end"], df["doy"].values)
 
             # Ensure the indices are in the correct order
             if start_idx > end_idx:
@@ -413,11 +421,8 @@ def save_annotations_and_next(n_clicks, field_index):
             # Update the DataFrame without overwriting previous values
             df.loc[start_idx:end_idx, "y_ph"] = y_ph
             print(
-                f"Updated y_ph from {df['doy_custom'].iloc[start_idx]} to {df['doy_custom'].iloc[end_idx]}"
+                f"Updated y_ph from {df['doy'].iloc[start_idx]} to {df['doy'].iloc[end_idx]}"
             )
-
-        if "doy_custom" in df.columns:
-            df.drop("doy_custom", axis="columns", inplace=True)
 
         os.makedirs(
             os.path.dirname(file_path.replace("input", "output")), exist_ok=True

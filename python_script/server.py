@@ -7,8 +7,11 @@ from scipy.signal import savgol_filter
 import os
 from glob import glob
 
+LEAP_YEARS = [2012, 2016, 2020, 2024, 2028, 2032, 20368]
+YEAR_DAYS = 365
 
-def adjust_doy_column(doy_column):
+
+def adjust_doy_column(doy_year_column):
     """
     Adjust the day of year (doy) column to ensure correct representation across multiple years.
 
@@ -19,21 +22,20 @@ def adjust_doy_column(doy_column):
     - Adjusted array or list of day of year (doy) values.
     """
     # Find the index where the values switch from the first range (5 to 350) to the second range (5 to 50)
-    doy_column = np.array(doy_column)
-    adjusted_doy_column = doy_column.copy()
-    year_days = 365
-    leap_year_days = 366
-    days_accumulated = 0
-    for i in range(1, len(doy_column)):
-        val = doy_column[i]
-        prev_val = doy_column[i - 1]
+    doy_year_column.astype(dtype={"doy": int, "year": int})
+    doy_values = np.array(doy_year_column).tolist()
+    # doy, year
+    custom_doy = [doy_values[0][0]]
+    year_accumulated = 0
+    for i, (val, year) in enumerate(doy_values[1:]):
+        prev_val = doy_values[i][0]
         if val < prev_val:
-            if prev_val == leap_year_days:
-                days_accumulated += leap_year_days
-            else:
-                days_accumulated += year_days
-        adjusted_doy_column[i] += days_accumulated
-    return adjusted_doy_column
+            year_accumulated += YEAR_DAYS
+            if (year - 1) in LEAP_YEARS:
+                year_accumulated += 1
+        custom_doy.append(val + year_accumulated)
+
+    return np.asarray(custom_doy)
 
 
 def ydict2windows(y_list, window_type):
@@ -73,11 +75,18 @@ def read_csv(csv_path):
     annotations = []
     df: pd.DataFrame = pd.read_csv(csv_path)
     # get old annotations
-    if "doy" not in df.columns:
+    if not all([i in df.columns for i in ["doy", "year"]]):
         has_error = True
         print(csv_path, "does not contain doy column")
-    # df["doy_orig"] = df["doy"].copy()
-    df["doy"] = adjust_doy_column(df["doy"])
+
+    df["doy_orig"] = df["doy"].copy()
+    # save original
+    df["doy"] = adjust_doy_column(df[["doy", "year"]])
+    df["date_convert"] = pd.to_datetime(df["date"], errors="coerce")
+
+    if df["date_convert"].isnull().any():
+        print("Warning: Some 'date' values could not be converted to datetime!")
+
     df.drop_duplicates(subset=["doy"], inplace=True)
     df.reset_index(drop=True, inplace=True)
     # get old annotations
@@ -106,6 +115,16 @@ def find_closest_index(value, array):
     return (np.abs(array - value)).argmin()
 
 
+def save_df(df: pd.DataFrame, filename: str):
+    # restore doy
+    df_ = df.copy()
+    df_["doy"] = df_["doy_orig"]
+    df_columns = list(df_.columns)
+    df_columns = [i for i in df_columns if i not in ["doy_orig", "date_convert"]]
+    df_ = df_[df_columns]
+    df_.to_csv(filename, index=False)
+
+
 ## ==================
 ## APP
 ## ==================
@@ -125,7 +144,7 @@ csvs_filter = [
     {
         "file_path": f,
         "folder_id": f.split("/")[-2],
-        "field_id": f.split("/")[-1].split("_")[0],
+        "field_id": f.split("/")[-1].split("_")[-1],
         **read_csv(f),
     }
     for f in all_csv
@@ -235,6 +254,9 @@ def update_graph(field_index, ndvi_data_store):
     df["s2_ndwi_smoothed"] = savgol_filter(df["s2_ndwi"], 10, 3)
     df["s2_mndwi_smoothed"] = savgol_filter(df["s2_mndwi"], 10, 3)
 
+    if df["date_convert"].isnull().any():
+        print("Some 'date_convert' values could not be converted to datetime!")
+
     fig = go.Figure(
         data=[
             go.Scatter(
@@ -276,7 +298,7 @@ def update_graph(field_index, ndvi_data_store):
             ),
         ]
     )
-    fig.update_traces(marker_size=8)
+    fig.update_traces(marker_size=5)
     title_text = (
         f"Field:\t  {folder_id}/{field_id} ---> ({field_index + 1} / {ALL_CSV_COUNT})"
     )
@@ -286,8 +308,15 @@ def update_graph(field_index, ndvi_data_store):
         xaxis_title="DOY",
         yaxis_title="Smoothed Values",
         dragmode="select",
-        height=700,
-        xaxis=dict(fixedrange=False, tickmode="auto", gridcolor="LightGrey"),
+        height=800,
+        # xaxis=dict(fixedrange=False, tickmode="auto", gridcolor="LightGrey"),
+        xaxis=dict(
+            tickmode="auto",
+            tickvals=df["doy"],
+            ticktext=df["date_convert"].dt.strftime("%Y-%m-%d"),
+            fixedrange=False,
+            gridcolor="LightGrey",
+        ),
         yaxis=dict(fixedrange=True),
     )
     # default 1
@@ -315,7 +344,12 @@ def update_graph(field_index, ndvi_data_store):
         end_idx = find_closest_index(window["end"], df["doy"].values)
         x0 = df["doy"][start_idx]
         x1 = df["doy"][end_idx]
-        print(x0, x1, x1 - x0, window["type"], )
+        print(
+            x0,
+            x1,
+            x1 - x0,
+            window["type"],
+        )
 
         last_period = (x1 - x0) // 4
         mid_point = (window["start"] + window["end"]) / 2
@@ -416,9 +450,8 @@ def save_annotations_and_next(n_clicks, field_index):
             if start_idx > end_idx:
                 start_idx, end_idx = end_idx, start_idx
 
-            y_ph = np.linspace(1.0, 0.0, end_idx - start_idx + 1)
+            y_ph = np.ones(end_idx - start_idx + 1)
 
-            # Update the DataFrame without overwriting previous values
             df.loc[start_idx:end_idx, "y_ph"] = y_ph
             print(
                 f"Updated y_ph from {df['doy'].iloc[start_idx]} to {df['doy'].iloc[end_idx]}"
@@ -427,7 +460,7 @@ def save_annotations_and_next(n_clicks, field_index):
         os.makedirs(
             os.path.dirname(file_path.replace("input", "output")), exist_ok=True
         )
-        df.to_csv(file_path.replace("/input/", "/output/"), index=False)
+        save_df(df.copy(), file_path.replace("input", "output"))
         print(f"Annotations for field {field_id} saved to CSV")
         print(f"***" * 10, "\n")
 
@@ -486,7 +519,8 @@ def incomplete_file(n_clicks, field_index):
         os.makedirs(
             os.path.dirname(file_path.replace("input", "incomplete")), exist_ok=True
         )
-        df.to_csv(file_path.replace("/input/", "/incomplete/"), index=False)
+        save_df(df.copy(), file_path.replace("/input/", "/incomplete/"))
+
         print(f"Incomplete field {field_id} saved to CSV")
         print(f"***" * 10, "\n")
 

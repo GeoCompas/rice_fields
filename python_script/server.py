@@ -82,7 +82,6 @@ def read_csv(csv_path):
     df["doy_orig"] = df["doy"].copy()
     # save original
     df["doy"] = adjust_doy_column(df[["doy", "year"]])
-    df["date_orig"] = df["date"].copy()
     df["date_convert"] = pd.to_datetime(df["date"], errors="coerce")
     df["date_convert"] = df["date_convert"].dt.normalize()
 
@@ -130,7 +129,7 @@ def save_df(df: pd.DataFrame, filename: str):
     df_ = df.copy()
     df_["doy"] = df_["doy_orig"]
     df_columns = list(df_.columns)
-    df_columns = [i for i in df_columns if i not in ["doy_orig", "date_convert"]]
+    df_columns = [i for i in df_columns if i not in ["doy_orig", "date_convert",]]
     df_ = df_[df_columns]
     df_.to_csv(filename, index=False)
 

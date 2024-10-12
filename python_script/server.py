@@ -82,7 +82,9 @@ def read_csv(csv_path):
     df["doy_orig"] = df["doy"].copy()
     # save original
     df["doy"] = adjust_doy_column(df[["doy", "year"]])
+    df["date_orig"] = df["date"].copy()
     df["date_convert"] = pd.to_datetime(df["date"], errors="coerce")
+    df["date_convert"] = df["date_convert"].dt.normalize()
 
     if df["date_convert"].isnull().any():
         print("Warning: Some 'date' values could not be converted to datetime!")
@@ -103,8 +105,8 @@ def read_csv(csv_path):
         "annotations": annotations,
         "data": df.copy(),
         "has_error": has_error,
-        "min": df["doy"].min(),
-        "max": df["doy"].max(),
+        "min": df["date_convert"].min(),
+        "max": df["date_convert"].max(),
     }
 
     return output
@@ -113,6 +115,14 @@ def read_csv(csv_path):
 # Helper function to find the closest index
 def find_closest_index(value, array):
     return (np.abs(array - value)).argmin()
+
+
+def find_closest_doy(input_date, df):
+    input_date = pd.to_datetime(input_date)
+    input_date_normalized = input_date.normalize()
+    df["date_diff"] = (df["date_convert"] - input_date_normalized).abs()
+    closest_row = df.loc[df["date_diff"].idxmin()]
+    return closest_row["doy"]
 
 
 def save_df(df: pd.DataFrame, filename: str):
@@ -153,8 +163,8 @@ csvs_filter = [
 # filter error csv
 csvs = [item for item in csvs_filter if not item.get("has_error")]
 # min, max
-MIN_DOY = min([i.get("min") for i in csvs]) - 10
-MAX_DOY = max([i.get("max") for i in csvs]) + 10
+MIN_DOY = min([i.get("min") for i in csvs])
+MAX_DOY = max([i.get("max") for i in csvs])
 
 print("=" * 20)
 print("Files input: ", len(all_csv))
@@ -260,7 +270,7 @@ def update_graph(field_index, ndvi_data_store):
     fig = go.Figure(
         data=[
             go.Scatter(
-                x=df["doy"],
+                x=df["date_convert"],
                 y=df["s2_mndwi_smoothed"] * 15,
                 mode="lines+markers",
                 name="S2 MNDWI Smoothed",
@@ -268,14 +278,14 @@ def update_graph(field_index, ndvi_data_store):
                 opacity=0.7,  # opacity
             ),
             go.Scatter(
-                x=df["doy"],
+                x=df["date_convert"],
                 y=df["s2_ndvi_smoothed"] * 15,
                 mode="lines+markers",
                 name="S2 NDVI Smoothed",
                 line=dict(color="green"),
             ),
             go.Scatter(
-                x=df["doy"],
+                x=df["date_convert"],
                 y=df["s2_ndwi_smoothed"] * 15,
                 mode="lines+markers",
                 name="S2 NDWI Smoothed",
@@ -283,14 +293,14 @@ def update_graph(field_index, ndvi_data_store):
                 opacity=0.3,  # opacity
             ),
             go.Scatter(
-                x=df["doy"],
+                x=df["date_convert"],
                 y=df["s1_vh_smoothed"],
                 mode="lines+markers",
                 name="S1 VH Smoothed",
                 line=dict(color="orange"),  # opacity=0.5,
             ),
             go.Scatter(
-                x=df["doy"],
+                x=df["date_convert"],
                 y=df["s1_vv_smoothed"],
                 mode="lines+markers",
                 name="S1 VV Smoothed",
@@ -309,14 +319,7 @@ def update_graph(field_index, ndvi_data_store):
         yaxis_title="Smoothed Values",
         dragmode="select",
         height=800,
-        # xaxis=dict(fixedrange=False, tickmode="auto", gridcolor="LightGrey"),
-        xaxis=dict(
-            tickmode="auto",
-            tickvals=df["doy"],
-            ticktext=df["date_convert"].dt.strftime("%Y-%m-%d"),
-            fixedrange=False,
-            gridcolor="LightGrey",
-        ),
+        xaxis=dict(fixedrange=False, tickmode="auto", gridcolor="LightGrey"),
         yaxis=dict(fixedrange=True),
     )
     # default 1
@@ -340,50 +343,68 @@ def update_graph(field_index, ndvi_data_store):
     # Logic to add planting and harvest windows to the figure
     for k, window in enumerate(annotations):
         # use the doy most near in dataset
-        start_idx = find_closest_index(window["start"], df["doy"].values)
-        end_idx = find_closest_index(window["end"], df["doy"].values)
-        x0 = df["doy"][start_idx]
-        x1 = df["doy"][end_idx]
-        print(
-            x0,
-            x1,
-            x1 - x0,
-            window["type"],
-        )
+        doy_values = df["doy"].values
 
-        last_period = (x1 - x0) // 4
+        start_idx = find_closest_index(window["start"], doy_values)
+        end_idx = find_closest_index(window["end"], doy_values)
+        # constants
+        type_windows = window.get("type")
+        x0_doy = df["doy"][start_idx]
+        x1_doy = df["doy"][end_idx]
+        last_quarter_period = x1_doy - ((x1_doy - x0_doy) // 4)
         mid_point = (window["start"] + window["end"]) / 2
 
-        type_windows = window.get("type")
+        mid_point_idx = find_closest_index(mid_point, doy_values)
+        last_quarter_period_idx = find_closest_index(last_quarter_period, doy_values)
+
+        x0_date = df["date_convert"][start_idx]
+        x1_date = df["date_convert"][end_idx]
+        mid_point_date = df["date_convert"][mid_point_idx]
+        last_quarter_period_date = df["date_convert"][last_quarter_period_idx]
+
+        print(
+            x0_doy,
+            x1_doy,
+            x1_doy - x0_doy,
+            type_windows,
+        )
+        print(
+            x0_date,
+            x1_date,
+            mid_point_date,
+            type_windows,
+        )
+
         color = "green" if type_windows == "cropping_windows" else "blue"
         y_01 = -25 if type_windows == "cropping_windows" else -28
+
         fig.add_vrect(
-            x0=x0,
-            x1=x1,
+            x0=x0_date,
+            x1=x1_date,
             fillcolor=color,
             opacity=0.15,
         )
         if type_windows == "cropping_windows":
             # second crop
             fig.add_vrect(
-                x0=x1 - last_period,
-                x1=x1,
+                x0=last_quarter_period_date,
+                x1=x1_date,
                 fillcolor="green",
                 opacity=0.15,
             )
 
         fig.add_shape(
             type="line",
-            x0=x0,
+            x0=x0_date,
             y0=y_01,
-            x1=x1,
+            x1=x1_date,
             y1=y_01,
             line=dict(color=color, width=1),
         )
         fig.add_annotation(
-            x=mid_point,
+            x=mid_point_date,
             y=y_01,
-            text=f"{int(x1 - x0)} days",
+            text=f"{int(x1_doy - x0_doy)} days",
             showarrow=False,
             font=dict(family="Arial", size=12, color="white"),
             align="center",
@@ -391,7 +412,7 @@ def update_graph(field_index, ndvi_data_store):
             opacity=1,
         )
         fig.add_annotation(
-            x=mid_point,
+            x=mid_point_date,
             y=10 if type_windows == "cropping_windows" else 12,
             text=f"RM-{k}",
             showarrow=False,
@@ -577,12 +598,17 @@ def register_window(window_clicks, selectedData, field_index):
     try:
         if ctx.triggered and selectedData and selectedData["range"]["x"]:
             start_date, end_date = selectedData["range"]["x"]
-            window = {"start": start_date, "end": end_date}
+            window = {"start_date": start_date, "end_date": end_date}
             csv = csvs[field_index]
+            # detect date near
+            df: pd.DataFrame = csv.get("data").copy()
+            window["start"] = find_closest_doy(start_date, df)
+            window["end"] = find_closest_doy(end_date, df)
             type_ = "cropping_windows"
-            if (end_date - start_date) <= 60:
-                pass  # type_ = "flooding_windows"
+            if (window["end"] - window["start"]) <= 60:
+                type_ = "flooding_windows"
             window["type"] = type_
+
             csv["annotations"].append(window)
     except Exception as ex:
         print("register_window", ex)

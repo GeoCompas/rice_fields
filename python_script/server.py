@@ -604,10 +604,10 @@ def register_window(window_clicks, selectedData, field_index):
             window["start"] = find_closest_doy(start_date, df)
             window["end"] = find_closest_doy(end_date, df)
             type_ = "cropping_windows"
-            if (window["end"] - window["start"]) <= 60:
-                type_ = "flooding_windows"
-            window["type"] = type_
+            # if (window["end"] - window["start"]) <= 60:
+            #     type_ = "flooding_windows"
 
+            window["type"] = type_
             csv["annotations"].append(window)
     except Exception as ex:
         print("register_window", ex)

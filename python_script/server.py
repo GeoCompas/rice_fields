@@ -78,6 +78,7 @@ def read_csv(csv_path):
     if not all([i in df.columns for i in ["doy", "year"]]):
         has_error = True
         print(csv_path, "does not contain doy column")
+        return {"has_error":True}
 
     df["doy_orig"] = df["doy"].copy()
     # save original
@@ -161,6 +162,9 @@ csvs_filter = [
 ]
 # filter error csv
 csvs = [item for item in csvs_filter if not item.get("has_error")]
+if not csvs:
+    raise Exception("Some csv files has errors")
+
 # min, max
 MIN_DOY = min([i.get("min") for i in csvs])
 MAX_DOY = max([i.get("max") for i in csvs])

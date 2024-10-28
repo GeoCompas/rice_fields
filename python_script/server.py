@@ -272,43 +272,43 @@ def update_graph(field_index, ndvi_data_store):
 
     fig = go.Figure(
         data=[
-            go.Scatter(
-                x=df["date_convert"],
-                y=df["s2_mndwi_smoothed"] * 15,
-                mode="lines+markers",
-                name="S2 MNDWI Smoothed",
-                line=dict(color="red"),
-                opacity=0.7,  # opacity
-            ),
+            # go.Scatter(
+            #     x=df["date_convert"],
+            #     y=df["s2_mndwi_smoothed"] * 15,
+            #     mode="lines+markers",
+            #     name="S2 MNDWI Smoothed",
+            #     line=dict(color="red"),
+            #     opacity=0.7,  # opacity
+            # ),
             go.Scatter(
                 x=df["date_convert"],
                 y=df["s2_ndvi_smoothed"] * 15,
                 mode="lines+markers",
-                name="S2 NDVI Smoothed",
+                name="",
                 line=dict(color="green"),
             ),
+            # go.Scatter(
+            #     x=df["date_convert"],
+            #     y=df["s2_ndwi_smoothed"] * 15,
+            #     mode="lines+markers",
+            #     name="S2 NDWI Smoothed",
+            #     line=dict(color="blue"),
+            #     opacity=0.3,  # opacity
+            # ),
             go.Scatter(
                 x=df["date_convert"],
-                y=df["s2_ndwi_smoothed"] * 15,
+                y=df["s1_vh_smoothed"]  + 10,
                 mode="lines+markers",
-                name="S2 NDWI Smoothed",
-                line=dict(color="blue"),
-                opacity=0.3,  # opacity
-            ),
-            go.Scatter(
-                x=df["date_convert"],
-                y=df["s1_vh_smoothed"],
-                mode="lines+markers",
-                name="S1 VH Smoothed",
+                name="",
                 line=dict(color="orange"),  # opacity=0.5,
             ),
-            go.Scatter(
-                x=df["date_convert"],
-                y=df["s1_vv_smoothed"],
-                mode="lines+markers",
-                name="S1 VV Smoothed",
-                line=dict(color="purple"),  # opacity=0.5,
-            ),
+            # go.Scatter(
+            #     x=df["date_convert"],
+            #     y=df["s1_vv_smoothed"],
+            #     mode="lines+markers",
+            #     name="S1 VV Smoothed",
+            #     line=dict(color="purple"),  # opacity=0.5,
+            # ),
         ]
     )
     fig.update_traces(marker_size=5)
@@ -318,8 +318,8 @@ def update_graph(field_index, ndvi_data_store):
 
     fig.update_layout(
         title=title_text,
-        xaxis_title="DOY",
-        yaxis_title="Smoothed Values",
+        xaxis_title="",
+        yaxis_title="",
         dragmode="select",
         height=800,
         xaxis=dict(fixedrange=False, tickmode="auto", gridcolor="LightGrey"),

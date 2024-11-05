@@ -78,7 +78,7 @@ def read_csv(csv_path):
     if not all([i in df.columns for i in ["doy", "year"]]):
         has_error = True
         print(csv_path, "does not contain doy column")
-        return {"has_error":True}
+        return {"has_error": True}
 
     df["doy_orig"] = df["doy"].copy()
     # save original
@@ -130,7 +130,15 @@ def save_df(df: pd.DataFrame, filename: str):
     df_ = df.copy()
     df_["doy"] = df_["doy_orig"]
     df_columns = list(df_.columns)
-    df_columns = [i for i in df_columns if i not in ["doy_orig", "date_convert",]]
+    df_columns = [
+        i
+        for i in df_columns
+        if i
+        not in [
+            "doy_orig",
+            "date_convert",
+        ]
+    ]
     df_ = df_[df_columns]
     df_.to_csv(filename, index=False)
 
@@ -267,19 +275,27 @@ def update_graph(field_index, ndvi_data_store):
     df["s2_ndwi_smoothed"] = savgol_filter(df["s2_ndwi"], 10, 3)
     df["s2_mndwi_smoothed"] = savgol_filter(df["s2_mndwi"], 10, 3)
 
+    # Calculate the rolling average for NDVI
+    rolling_window_size = (
+        10  # Set the window size for the rolling average (e.g., 7 days)
+    )
+    df["s2_ndvi_rolling_avg"] = (
+        df["s2_ndvi"].rolling(window=rolling_window_size, min_periods=1).mean()
+    )
+
     if df["date_convert"].isnull().any():
         print("Some 'date_convert' values could not be converted to datetime!")
 
     fig = go.Figure(
         data=[
-            # go.Scatter(
-            #     x=df["date_convert"],
-            #     y=df["s2_mndwi_smoothed"] * 15,
-            #     mode="lines+markers",
-            #     name="S2 MNDWI Smoothed",
-            #     line=dict(color="red"),
-            #     opacity=0.7,  # opacity
-            # ),
+            go.Scatter(
+                x=df["date_convert"],
+                y=df["s2_ndvi_rolling_avg"] * 15,
+                mode="lines+markers",
+                name="",
+                line=dict(color="blue"),
+                opacity=0.7,  # opacity
+            ),
             go.Scatter(
                 x=df["date_convert"],
                 y=df["s2_ndvi_smoothed"] * 15,
@@ -297,7 +313,7 @@ def update_graph(field_index, ndvi_data_store):
             # ),
             go.Scatter(
                 x=df["date_convert"],
-                y=df["s1_vh_smoothed"]  + 10,
+                y=df["s1_vh_smoothed"] + 10,
                 mode="lines+markers",
                 name="",
                 line=dict(color="orange"),  # opacity=0.5,

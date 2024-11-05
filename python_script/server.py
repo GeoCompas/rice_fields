@@ -157,12 +157,25 @@ files_incomplete = [
     for f in glob(f"{data_pth}/incomplete/**/*.csv")
 ]
 all_csv = sorted([f for f in glob(f"{data_pth}/input/**/*.csv")])
+all_csv_metadata = [f for f in glob(f"{data_pth}/input/*.csv")]
+dict_metadata = {}
+if all_csv_metadata:
+    merge_metadata = pd.concat(
+        [pd.read_csv(i) for i in all_csv_metadata], ignore_index=True
+    )
+    list_dict_ = merge_metadata.to_dict("records")
+    dict_metadata = {
+        str(k.get("boundary_ID")): {ki: vi for ki, vi in k.items() if "CDL" in ki}
+        for k in list_dict_
+        if k.get("boundary_ID")
+    }
 
 csvs_filter = [
     {
         "file_path": f,
         "folder_id": f.split("/")[-2],
-        "field_id": f.split("/")[-1].split("_")[-1],
+        "field_id": f.split("/")[-1],
+        "help_name": dict_metadata.get(f.split("/")[-1].split("_")[0], {}),
         **read_csv(f),
     }
     for f in all_csv
@@ -267,6 +280,13 @@ def update_graph(field_index, ndvi_data_store):
     df: pd.DataFrame = csv.get("data").copy()
     field_id = csv.get("field_id")
     folder_id = csv.get("folder_id")
+    help_name = " , ".join(
+        [
+            f"<b>{k.replace('CDL','')}</b>: {v}"
+            for k, v in csv.get("help_name", {}).items()
+        ]
+    )
+
     annotations = csv.get("annotations", [])
 
     df["s2_ndvi_smoothed"] = savgol_filter(df["s2_ndvi"], 10, 3)
@@ -302,8 +322,7 @@ def update_graph(field_index, ndvi_data_store):
                 mode="lines+markers",
                 name="",
                 line=dict(color="green"),
-            ),
-            # go.Scatter(
+            ),  # go.Scatter(
             #     x=df["date_convert"],
             #     y=df["s2_ndwi_smoothed"] * 15,
             #     mode="lines+markers",
@@ -317,8 +336,7 @@ def update_graph(field_index, ndvi_data_store):
                 mode="lines+markers",
                 name="",
                 line=dict(color="orange"),  # opacity=0.5,
-            ),
-            # go.Scatter(
+            ),  # go.Scatter(
             #     x=df["date_convert"],
             #     y=df["s1_vv_smoothed"],
             #     mode="lines+markers",
@@ -328,9 +346,7 @@ def update_graph(field_index, ndvi_data_store):
         ]
     )
     fig.update_traces(marker_size=5)
-    title_text = (
-        f"Field:\t  {folder_id}/{field_id} ---> ({field_index + 1} / {ALL_CSV_COUNT})"
-    )
+    title_text = f"Field:\t  {folder_id}/{field_id} ---> ({field_index + 1} / {ALL_CSV_COUNT}) </br></br>{help_name}"
 
     fig.update_layout(
         title=title_text,

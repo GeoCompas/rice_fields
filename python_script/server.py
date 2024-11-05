@@ -290,7 +290,7 @@ def update_graph(field_index, ndvi_data_store):
         data=[
             go.Scatter(
                 x=df["date_convert"],
-                y=df["s2_ndvi_rolling_avg"] * 15,
+                y=df["s2_ndvi_rolling_avg"] * 15 - 5,
                 mode="lines+markers",
                 name="",
                 line=dict(color="blue"),

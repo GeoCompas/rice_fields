@@ -165,9 +165,11 @@ if all_csv_metadata:
     )
     list_dict_ = merge_metadata.to_dict("records")
     dict_metadata = {
-        str(k.get("boundary_ID")): {ki: vi for ki, vi in k.items() if "CDL" in ki}
+        str(k.get("boundary_id")): {
+            ki: vi for ki, vi in k.items() if "CROP_TYPE_" in ki
+        }
         for k in list_dict_
-        if k.get("boundary_ID")
+        if k.get("boundary_id")
     }
 
 csvs_filter = [
@@ -282,8 +284,9 @@ def update_graph(field_index, ndvi_data_store):
     folder_id = csv.get("folder_id")
     help_name = "       ".join(
         [
-            f"<b>{k.replace('CDL','')}</b>: {v}"
+            f"<b>{k.replace('CROP_TYPE_', '')}</b>: {', '.join(list(set([x.strip() for x in v.split(',')]))) if ',' in v else v}"
             for k, v in csv.get("help_name", {}).items()
+            if not any([i in k for i in ["2016", "2017", "2018"]])
         ]
     )
 

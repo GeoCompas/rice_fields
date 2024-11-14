@@ -280,7 +280,7 @@ def update_graph(field_index, ndvi_data_store):
     df: pd.DataFrame = csv.get("data").copy()
     field_id = csv.get("field_id")
     folder_id = csv.get("folder_id")
-    help_name = " , ".join(
+    help_name = "       ".join(
         [
             f"<b>{k.replace('CDL','')}</b>: {v}"
             for k, v in csv.get("help_name", {}).items()
@@ -349,7 +349,8 @@ def update_graph(field_index, ndvi_data_store):
     title_text = f"Field:\t  {folder_id}/{field_id} ---> ({field_index + 1} / {ALL_CSV_COUNT}) </br></br>{help_name}"
 
     fig.update_layout(
-        title=title_text,
+        title_text=title_text,
+        title_x=0.5,
         xaxis_title="",
         yaxis_title="",
         dragmode="select",

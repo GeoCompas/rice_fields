@@ -10,6 +10,32 @@ from glob import glob
 LEAP_YEARS = [2012, 2016, 2020, 2024, 2028, 2032, 20368]
 YEAR_DAYS = 365
 
+COLUMN_PREFIX = ["CROP_TYPE_", "CDL"]
+
+
+def clean_prefix(col_pre):
+    if not col_pre:
+        return ""
+    for i in COLUMN_PREFIX:
+        col_pre = col_pre.replace(i, "")
+    return col_pre
+
+
+has_prefix = lambda x: any(
+    [
+        i in str(x) and not any([y in str(x) for y in ["2018", "2017"]])
+        for i in COLUMN_PREFIX
+    ]
+)
+
+
+def clean_prefix_val(val):
+    if not val:
+        return ""
+    if "," in str(val):
+        return ",".join(set(str(val).strip().replace(" ", "").split(",")))
+    return str(val).strip()
+
 
 def adjust_doy_column(doy_year_column):
     """
@@ -99,6 +125,13 @@ def read_csv(csv_path):
             df_ph.to_dict(orient="records"), "cropping_windows"
         )
 
+    if "y_ph_nana" in df.columns and not has_error:
+        df_ph = df[["doy", "y_ph_nana"]].copy()
+        df_ph["val"] = df_ph["y_ph_nana"]
+        annotations += ydict2windows(
+            df_ph.to_dict(orient="records"), "cropping_windows"
+        )
+
     # reset file
     df["y_ph"] = np.nan
     output = {
@@ -143,6 +176,19 @@ def save_df(df: pd.DataFrame, filename: str):
     df_.to_csv(filename, index=False)
 
 
+def get_custom_metadata(dict_metadata_: dict, filename_raw: str):
+    filename = filename_raw.split("/")[-1].split(".")[0]
+    filename_split = filename.split("_")
+    if filename_split[0] in dict_metadata_.keys():
+        print("case 1", filename_split[0], dict_metadata_[filename_split[0]])
+        return dict_metadata_[filename_split[0]]
+    if filename_split[-1] in dict_metadata_.keys():
+        print("case 2", filename_split[-1], dict_metadata_[filename_split[-1]])
+        return dict_metadata_[filename_split[-1]]
+    print("case 3", filename_split)
+    return {}
+
+
 ## ==================
 ## APP
 ## ==================
@@ -163,10 +209,16 @@ if all_csv_metadata:
     merge_metadata = pd.concat(
         [pd.read_csv(i) for i in all_csv_metadata], ignore_index=True
     )
+    if "boundary_ID" in merge_metadata.columns:
+        merge_metadata.rename(columns={"boundary_ID": "boundary_id"}, inplace=True)
+    print(merge_metadata.columns)
+
     list_dict_ = merge_metadata.to_dict("records")
     dict_metadata = {
         str(k.get("boundary_id")): {
-            ki: vi for ki, vi in k.items() if "CROP_TYPE_" in ki
+            clean_prefix(ki): clean_prefix_val(vi)
+            for ki, vi in k.items()
+            if vi and has_prefix(ki) and str(vi) != "nan"
         }
         for k in list_dict_
         if k.get("boundary_id")
@@ -177,7 +229,7 @@ csvs_filter = [
         "file_path": f,
         "folder_id": f.split("/")[-2],
         "field_id": f.split("/")[-1],
-        "help_name": dict_metadata.get(f.split("/")[-1].split("_")[0], {}),
+        "help_name": get_custom_metadata(dict_metadata, f),
         **read_csv(f),
     }
     for f in all_csv
@@ -283,11 +335,7 @@ def update_graph(field_index, ndvi_data_store):
     field_id = csv.get("field_id")
     folder_id = csv.get("folder_id")
     help_name = "       ".join(
-        [
-            f"<b>{k.replace('CROP_TYPE_', '')}</b>: {', '.join(list(set([x.strip() for x in v.split(',')]))) if ',' in v else v}"
-            for k, v in csv.get("help_name", {}).items()
-            if not any([i in k for i in ["2016", "2017", "2018"]])
-        ]
+        [f"<b>{clean_prefix(k)}</b>: {v}" for k, v in csv.get("help_name", {}).items()]
     )
 
     annotations = csv.get("annotations", [])

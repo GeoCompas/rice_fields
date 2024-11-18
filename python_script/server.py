@@ -1,3 +1,5 @@
+import json
+
 import dash
 from dash import Dash, html, dcc, Input, Output, State, callback_context
 import plotly.graph_objs as go
@@ -11,6 +13,7 @@ LEAP_YEARS = [2012, 2016, 2020, 2024, 2028, 2032, 20368]
 YEAR_DAYS = 365
 
 COLUMN_PREFIX = ["CROP_TYPE_", "CDL"]
+NEW_COLUMNS_OBJECT_ID = ["boundary_ID", "OBJECTID"]
 
 
 def clean_prefix(col_pre):
@@ -179,13 +182,14 @@ def save_df(df: pd.DataFrame, filename: str):
 def get_custom_metadata(dict_metadata_: dict, filename_raw: str):
     filename = filename_raw.split("/")[-1].split(".")[0]
     filename_split = filename.split("_")
-    if filename_split[0] in dict_metadata_.keys():
-        print("case 1", filename_split[0], dict_metadata_[filename_split[0]])
-        return dict_metadata_[filename_split[0]]
-    if filename_split[-1] in dict_metadata_.keys():
-        print("case 2", filename_split[-1], dict_metadata_[filename_split[-1]])
-        return dict_metadata_[filename_split[-1]]
-    print("case 3", filename_split)
+    keys = dict_metadata_.keys()
+    name_ = str(filename_split[0])
+    if name_ in keys:
+        return dict_metadata_[name_]
+
+    name_ = str(filename_split[-1])
+    if name_ in keys:
+        return dict_metadata_[name_]
     return {}
 
 
@@ -206,14 +210,24 @@ all_csv = sorted([f for f in glob(f"{data_pth}/input/**/*.csv")])
 all_csv_metadata = [f for f in glob(f"{data_pth}/input/*.csv")]
 dict_metadata = {}
 if all_csv_metadata:
-    merge_metadata = pd.concat(
-        [pd.read_csv(i) for i in all_csv_metadata], ignore_index=True
-    )
-    if "boundary_ID" in merge_metadata.columns:
-        merge_metadata.rename(columns={"boundary_ID": "boundary_id"}, inplace=True)
-    print(merge_metadata.columns)
+    list_df = []
+    for df_path in all_csv_metadata:
+        df_ = pd.read_csv(df_path)
+        if df_.empty:
+            continue
+        colums = df_.columns.tolist()
+        for col_obj in NEW_COLUMNS_OBJECT_ID:
+            if col_obj in colums:
+                df_.rename(columns={col_obj: "boundary_id"}, inplace=True)
 
+        if "Unnamed: 0" in colums:
+            df_.drop(columns=["Unnamed: 0"], inplace=True)
+
+        list_df.append(df_)
+
+    merge_metadata = pd.concat(list_df, ignore_index=True)
     list_dict_ = merge_metadata.to_dict("records")
+
     dict_metadata = {
         str(k.get("boundary_id")): {
             clean_prefix(ki): clean_prefix_val(vi)
@@ -449,18 +463,18 @@ def update_graph(field_index, ndvi_data_store):
         mid_point_date = df["date_convert"][mid_point_idx]
         last_quarter_period_date = df["date_convert"][last_quarter_period_idx]
 
-        print(
-            x0_doy,
-            x1_doy,
-            x1_doy - x0_doy,
-            type_windows,
-        )
-        print(
-            x0_date,
-            x1_date,
-            mid_point_date,
-            type_windows,
-        )
+        # print(
+        #     x0_doy,
+        #     x1_doy,
+        #     x1_doy - x0_doy,
+        #     type_windows,
+        # )
+        # print(
+        #     x0_date,
+        #     x1_date,
+        #     mid_point_date,
+        #     type_windows,
+        # )
 
         color = "green" if type_windows == "cropping_windows" else "blue"
         y_01 = -25 if type_windows == "cropping_windows" else -28

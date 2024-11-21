@@ -370,12 +370,13 @@ def update_graph(field_index, ndvi_data_store):
 
     if df["date_convert"].isnull().any():
         print("Some 'date_convert' values could not be converted to datetime!")
+    FACTOR = 15
 
     fig = go.Figure(
         data=[
             go.Scatter(
                 x=df["date_convert"],
-                y=df["s2_ndvi_rolling_avg"] * 15 - 6,
+                y=df["s2_ndvi_rolling_avg"] * FACTOR - 6,
                 mode="lines+markers",
                 name="",
                 line=dict(color="blue"),
@@ -383,7 +384,7 @@ def update_graph(field_index, ndvi_data_store):
             ),
             go.Scatter(
                 x=df["date_convert"],
-                y=df["s2_ndvi_smoothed"] * 15,
+                y=df["s2_ndvi_smoothed"] * FACTOR,
                 mode="lines+markers",
                 name="",
                 line=dict(color="green"),
@@ -397,7 +398,7 @@ def update_graph(field_index, ndvi_data_store):
             # ),
             go.Scatter(
                 x=df["date_convert"],
-                y=df["s1_vh_smoothed"] + 10,
+                y=df["s1_vh_smoothed"] + (FACTOR - 5),
                 mode="lines+markers",
                 name="",
                 line=dict(color="orange"),  # opacity=0.5,
@@ -424,20 +425,20 @@ def update_graph(field_index, ndvi_data_store):
         yaxis=dict(fixedrange=True),
     )
     # default 1
+    # fig.add_shape(
+    #     type="line",
+    #     x0=MIN_DOY,
+    #     y0=-2.5,
+    #     x1=MAX_DOY,
+    #     y1=-2.5,
+    #     line=dict(color="black", width=0.3),
+    # )
     fig.add_shape(
         type="line",
         x0=MIN_DOY,
-        y0=-2.5,
+        y0=0.2*FACTOR,
         x1=MAX_DOY,
-        y1=-2.5,
-        line=dict(color="black", width=0.3),
-    )
-    fig.add_shape(
-        type="line",
-        x0=MIN_DOY,
-        y0=1,
-        x1=MAX_DOY,
-        y1=1,
+        y1=0.2*FACTOR,
         line=dict(color="black", width=0.3),
     )
 

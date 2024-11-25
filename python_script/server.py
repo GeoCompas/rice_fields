@@ -372,6 +372,10 @@ def update_graph(field_index, ndvi_data_store):
         print("Some 'date_convert' values could not be converted to datetime!")
     FACTOR = 15
 
+    s1_vh_smoothed = df["s1_vh_smoothed"] + (FACTOR - 5)
+    s1_vh_smoothed = np.where(s1_vh_smoothed >= -20, s1_vh_smoothed, -20)
+    s1_vh_smoothed = np.where(s1_vh_smoothed <= 0, s1_vh_smoothed, 0)
+
     fig = go.Figure(
         data=[
             go.Scatter(
@@ -398,7 +402,7 @@ def update_graph(field_index, ndvi_data_store):
             # ),
             go.Scatter(
                 x=df["date_convert"],
-                y=df["s1_vh_smoothed"] + (FACTOR - 5),
+                y=s1_vh_smoothed,
                 mode="lines+markers",
                 name="",
                 line=dict(color="orange"),  # opacity=0.5,
@@ -436,9 +440,9 @@ def update_graph(field_index, ndvi_data_store):
     fig.add_shape(
         type="line",
         x0=MIN_DOY,
-        y0=0.2*FACTOR,
+        y0=0.2 * FACTOR,
         x1=MAX_DOY,
-        y1=0.2*FACTOR,
+        y1=0.2 * FACTOR,
         line=dict(color="black", width=0.3),
     )
 

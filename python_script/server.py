@@ -373,7 +373,8 @@ def update_graph(field_index, ndvi_data_store):
     FACTOR = 15
 
     s1_vh_smoothed = df["s1_vh_smoothed"] + (FACTOR - 5)
-    s1_vh_smoothed = np.where(s1_vh_smoothed >= -20, s1_vh_smoothed, -20)
+    LIMIT_S1_VH = -25
+    s1_vh_smoothed = np.where(s1_vh_smoothed >= LIMIT_S1_VH, s1_vh_smoothed, LIMIT_S1_VH)
     s1_vh_smoothed = np.where(s1_vh_smoothed <= 0, s1_vh_smoothed, 0)
 
     fig = go.Figure(

@@ -13,7 +13,9 @@ LEAP_YEARS = [2012, 2016, 2020, 2024, 2028, 2032, 20368]
 YEAR_DAYS = 365
 
 COLUMN_PREFIX = ["CROP_TYPE_", "CDL"]
-NEW_COLUMNS_OBJECT_ID = ["fid", ]
+NEW_COLUMNS_OBJECT_ID = [
+    "fid",
+]
 
 
 def clean_prefix(col_pre):
@@ -229,7 +231,7 @@ if all_csv_metadata:
 
     dict_metadata = {
         str(k.get("boundary_id")): {
-            str(int(k.get("year",0))):k.get("crop_type")
+            str(k.get("year", "")).split(".")[0]: k.get("crop_type")
         }
         for k in list_dict_
         if k.get("boundary_id")
@@ -371,7 +373,9 @@ def update_graph(field_index, ndvi_data_store):
 
     s1_vh_smoothed = df["s1_vh_smoothed"] + (FACTOR - 5)
     LIMIT_S1_VH = -25
-    s1_vh_smoothed = np.where(s1_vh_smoothed >= LIMIT_S1_VH, s1_vh_smoothed, LIMIT_S1_VH)
+    s1_vh_smoothed = np.where(
+        s1_vh_smoothed >= LIMIT_S1_VH, s1_vh_smoothed, LIMIT_S1_VH
+    )
     s1_vh_smoothed = np.where(s1_vh_smoothed <= 0, s1_vh_smoothed, 0)
 
     fig = go.Figure(

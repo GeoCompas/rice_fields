@@ -229,7 +229,7 @@ if all_csv_metadata:
 
     dict_metadata = {
         str(k.get("boundary_id")): {
-            str(k.get("year")):k.get("crop_type")
+            str(int(k.get("year",0))):k.get("crop_type")
         }
         for k in list_dict_
         if k.get("boundary_id")

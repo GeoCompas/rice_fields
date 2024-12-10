@@ -13,7 +13,7 @@ LEAP_YEARS = [2012, 2016, 2020, 2024, 2028, 2032, 20368]
 YEAR_DAYS = 365
 
 COLUMN_PREFIX = ["CROP_TYPE_", "CDL"]
-NEW_COLUMNS_OBJECT_ID = ["boundary_ID", "OBJECTID"]
+NEW_COLUMNS_OBJECT_ID = ["fid", ]
 
 
 def clean_prefix(col_pre):
@@ -216,9 +216,8 @@ if all_csv_metadata:
         if df_.empty:
             continue
         colums = df_.columns.tolist()
-        for col_obj in NEW_COLUMNS_OBJECT_ID:
-            if col_obj in colums:
-                df_.rename(columns={col_obj: "boundary_id"}, inplace=True)
+        if "fid" in colums:
+            df_["boundary_id"] = df_["fid"]
 
         if "Unnamed: 0" in colums:
             df_.drop(columns=["Unnamed: 0"], inplace=True)
@@ -230,9 +229,7 @@ if all_csv_metadata:
 
     dict_metadata = {
         str(k.get("boundary_id")): {
-            clean_prefix(ki): clean_prefix_val(vi)
-            for ki, vi in k.items()
-            if vi and has_prefix(ki) and str(vi) != "nan"
+            str(k.get("year")):k.get("crop_type")
         }
         for k in list_dict_
         if k.get("boundary_id")

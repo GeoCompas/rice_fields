@@ -369,9 +369,9 @@ def update_graph(field_index, ndvi_data_store):
 
     if df["date_convert"].isnull().any():
         print("Some 'date_convert' values could not be converted to datetime!")
-    FACTOR = 15
+    FACTOR = 1
 
-    s1_vh_smoothed = df["s1_vh_smoothed"] + (FACTOR - 5)
+    s1_vh_smoothed = df["s1_vh_smoothed"]/20+0.7-0.2
     # LIMIT_S1_VH = -25
 
     # s1_vh_smoothed = np.where(
@@ -383,7 +383,7 @@ def update_graph(field_index, ndvi_data_store):
         data=[
             go.Scatter(
                 x=df["date_convert"],
-                y=df["s2_ndvi_rolling_avg"] * FACTOR - 6,
+                y=df["s2_ndvi_rolling_avg"]-0.4,
                 mode="lines+markers",
                 name="",
                 line=dict(color="blue"),
@@ -391,7 +391,7 @@ def update_graph(field_index, ndvi_data_store):
             ),
             go.Scatter(
                 x=df["date_convert"],
-                y=df["s2_ndvi_smoothed"] * FACTOR,
+                y=df["s2_ndvi_smoothed"],
                 mode="lines+markers",
                 name="",
                 line=dict(color="green"),
@@ -485,8 +485,7 @@ def update_graph(field_index, ndvi_data_store):
         # )
 
         color = "green" if type_windows == "cropping_windows" else "blue"
-        y_01 = -25 if type_windows == "cropping_windows" else -28
-
+        y_01 = -0.7 if type_windows == "cropping_windows" else -0.8
         fig.add_vrect(
             x0=x0_date,
             x1=x1_date,
@@ -522,7 +521,7 @@ def update_graph(field_index, ndvi_data_store):
         )
         fig.add_annotation(
             x=mid_point_date,
-            y=10 if type_windows == "cropping_windows" else 12,
+            y=0.7 if type_windows == "cropping_windows" else 0.9,
             text=f"RM-{k}",
             showarrow=False,
             font=dict(family="Arial", size=12, color="white"),

@@ -221,6 +221,9 @@ if all_csv_metadata:
         if "fid" in colums:
             df_["boundary_id"] = df_["fid"]
 
+        if "polygon_id" in colums:
+            df_["boundary_id"] = df_["polygon_id"]
+
         if "Unnamed: 0" in colums:
             df_.drop(columns=["Unnamed: 0"], inplace=True)
 

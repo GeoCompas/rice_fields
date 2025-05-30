@@ -6,30 +6,13 @@ import numpy as np
 from scipy.signal import savgol_filter
 import os
 from glob import glob
+from datetime import datetime
 
 
-def adjust_doy_column(doy_column):
-    """
-    Adjust the day of year (doy) column to ensure correct representation across multiple years.
-
-    Parameters:
-    - doy_column: Array or list of day of year (doy) values.
-
-    Returns:
-    - Adjusted array or list of day of year (doy) values.
-    """
-    # Find the index where the values switch from the first range (5 to 350) to the second range (5 to 50)
-    switch_index = np.argmax(np.diff(doy_column) < 0) + 1
-    max_value = doy_column.max()
-    adjusted_doy_column = np.array(doy_column)
-
-    if 350 <= max_value < 366:
-        # Adjust values after the switch to account for the transition to the next year
-        adjusted_doy_column[switch_index:] += 365
-    elif max_value == 366:
-        adjusted_doy_column[switch_index:] += 366
-
-    return adjusted_doy_column
+def str2date(doy_column):
+    doy_column = doy_column[:10]
+    dt = datetime.strptime(doy_column, "%Y-%m-%d").date()
+    return dt
 
 
 def ydict2windows(y_list, window_type):
@@ -37,7 +20,7 @@ def ydict2windows(y_list, window_type):
     try:
         start_date = None
         for i, item in enumerate(y_list):
-            doy = item["doy"]
+            doy = item["date"]
             y_ph = item["val"]
 
             if not pd.isna(y_ph) and y_ph != 0:
@@ -45,7 +28,7 @@ def ydict2windows(y_list, window_type):
                     start_date = doy
             else:
                 if start_date is not None:
-                    end_date = y_list[i]["doy"]
+                    end_date = y_list[i]["date"]
                     windows.append(
                         {"start": start_date, "end": end_date, "type": window_type}
                     )
@@ -53,10 +36,10 @@ def ydict2windows(y_list, window_type):
 
         # check windows close
         if start_date is not None:
-            end_date = y_list[-1]["doy"]
+            end_date = y_list[-1]["date"]
             windows.append({"start": start_date, "end": end_date, "type": window_type})
     except Exception as ex:
-        print(ex)
+        print("ydict2windows", ex)
     return windows
 
 
@@ -66,26 +49,25 @@ def read_csv(csv_path):
     annotations = []
     df: pd.DataFrame = pd.read_csv(csv_path)
     # get old annotations
-    if "doy" not in df.columns:
+    if "date" not in df.columns:
         has_error = True
-        print(csv_path, "does not contain doy column")
-    df["doy"] = adjust_doy_column(df["doy"])
-    df.drop_duplicates(subset=["doy"], inplace=True)
+        print(csv_path, "does not contain date column")
+    df["date_dt"] = df["date"].apply(str2date)
+    # df.drop_duplicates(subset=["doy"], inplace=True)
     df.reset_index(drop=True, inplace=True)
     # get old annotations
     if "y_ph" in df.columns and not has_error:
-        df_ph = df[["doy", "y_ph"]].copy()
+        df_ph = df[["date", "y_ph"]].copy()
         df_ph["val"] = df_ph["y_ph"]
         annotations += ydict2windows(
             df_ph.to_dict(orient="records"), "cropping_windows"
         )
     if "y_fd" in df.columns and not has_error:
-        df_fd = df[["doy", "y_fd"]].copy()
+        df_fd = df[["date", "y_fd"]].copy()
         df_fd["val"] = df_fd["y_fd"]
         annotations += ydict2windows(
             df_fd.to_dict(orient="records"), "flooding_windows"
         )
-
     # reset file
     df["y_ph"] = np.nan
     df["y_fd"] = np.nan
@@ -96,7 +78,9 @@ def read_csv(csv_path):
 
 # Helper function to find the closest index
 def find_closest_index(value, array):
-    return (np.abs(array - value)).argmin()
+    value = str(value)[:10]
+    value_dt = str2date(value)
+    return np.argmin(np.abs(array - value_dt))
 
 
 ## ==================
@@ -138,6 +122,8 @@ print("=" * 20)
 ALL_CSV_COUNT = len(csvs)
 
 app = Dash(__name__)
+app.layout = html.Div([dash.page_container])
+
 btn_style = {
     "fontSize": "15px",
     "marginLeft": "5px",
@@ -226,11 +212,10 @@ def update_graph(field_index, ndvi_data_store):
     df["s2_ndwi_smoothed"] = savgol_filter(df["s2_ndwi"], 10, 3)
     df["s2_mndwi_smoothed"] = savgol_filter(df["s2_mndwi"], 10, 3)
 
-
     fig = go.Figure(
         data=[
             go.Scatter(
-                x=df["doy"],
+                x=df["date_dt"],
                 y=df["s2_mndwi_smoothed"] * 15,
                 mode="lines+markers",
                 name="S2 MNDWI Smoothed",
@@ -238,14 +223,14 @@ def update_graph(field_index, ndvi_data_store):
                 opacity=0.7,  # opacity
             ),
             go.Scatter(
-                x=df["doy"],
+                x=df["date_dt"],
                 y=df["s2_ndvi_smoothed"] * 15,
                 mode="lines+markers",
                 name="S2 NDVI Smoothed",
                 line=dict(color="green"),
             ),
             go.Scatter(
-                x=df["doy"],
+                x=df["date_dt"],
                 y=df["s2_ndwi_smoothed"] * 15,
                 mode="lines+markers",
                 name="S2 NDWI Smoothed",
@@ -253,7 +238,7 @@ def update_graph(field_index, ndvi_data_store):
                 opacity=0.3,  # opacity
             ),
             go.Scatter(
-                x=df["doy"],
+                x=df["date_dt"],
                 y=df["s1_vh_smoothed"],
                 mode="lines+markers",
                 name="S1 VH Smoothed",
@@ -261,7 +246,7 @@ def update_graph(field_index, ndvi_data_store):
                 # opacity=0.5,
             ),
             go.Scatter(
-                x=df["doy"],
+                x=df["date_dt"],
                 y=df["s1_vv_smoothed"],
                 mode="lines+markers",
                 name="S1 VV Smoothed",
@@ -277,35 +262,26 @@ def update_graph(field_index, ndvi_data_store):
 
     fig.update_layout(
         title=title_text,
-        xaxis_title="DOY",
-        yaxis_title="Smoothed Values",
+        xaxis_title="",
+        yaxis_title="",
         dragmode="select",
-        height=700,
-        xaxis=dict(fixedrange=False, tickmode="auto", gridcolor="LightGrey"),
-        yaxis=dict(fixedrange=True),
+        height=800,
+        xaxis={"fixedrange": False, "gridcolor": "LightGrey"}, yaxis={"fixedrange": False, },
     )
-    # default 1
-    fig.add_shape(
-        type="line",
-        x0=0,
-        y0=-2.5,
-        x1=400,
-        y1=-2.5,
-        line=dict(color="black", width=0.3),
-    )
-    fig.add_shape(type="line", x0=0, y0=1, x1=400, y1=1, line=dict(color="black", width=0.3), )
+
 
     # Logic to add planting and harvest windows to the figure
     for k, window in enumerate(annotations):
         # use the doy most near in dataset
-        start_idx = find_closest_index(window["start"], df["doy"].values)
-        end_idx = find_closest_index(window["end"], df["doy"].values)
+        start_idx = find_closest_index(window["start"], df["date_dt"].values)
+        end_idx = find_closest_index(window["end"], df["date_dt"].values)
 
-        x0 = df["doy"][start_idx]
-        x1 = df["doy"][end_idx]
+        x0 = str2date(df["date"][start_idx])
+        x1 = str2date(df["date"][end_idx])
 
-        last_period = (x1 - x0) // 4
-        mid_point = (window["start"] + window["end"]) / 2
+        diff_days = (x1 - x0).days
+        last_period = x1 - ((x1 - x0) // 4)
+        mid_point =  x0 + (x1 - x0) / 2
 
         type_windows = window.get("type")
         color = "green" if type_windows == "cropping_windows" else "blue"
@@ -319,7 +295,7 @@ def update_graph(field_index, ndvi_data_store):
         if type_windows == "cropping_windows":
             # second crop
             fig.add_vrect(
-                x0=x1 - last_period,
+                x0=last_period,
                 x1=x1,
                 fillcolor="green",
                 opacity=0.15,
@@ -336,7 +312,7 @@ def update_graph(field_index, ndvi_data_store):
         fig.add_annotation(
             x=mid_point,
             y=y_01,
-            text=f"{int(x1 - x0)} days",
+            text=f"{diff_days} days",
             showarrow=False,
             font=dict(family="Arial", size=12, color="white"),
             align="center",
@@ -379,55 +355,34 @@ def save_annotations_and_next(n_clicks, field_index):
         annotations = csv.get("annotations", [])
         if not annotations:
             print(f"File {field_id}! whitout annotations")
-            return (f"File {field_id}! whitout annotations", next_field_index,)
+            return (
+                f"File {field_id}! whitout annotations",
+                next_field_index,
+            )
 
         print(f"Processing annotations for field {field_id}")
 
-        cropping_windows = [
-            i for i in annotations if i.get("type") == "cropping_windows"
-        ]
-        flooding_windows = [
-            i for i in annotations if i.get("type") == "flooding_windows"
-        ]
-
         # Process each cropping window for y_ph
-        for window in cropping_windows:
-            window["planting_date_0"] = window["start"]
-            window["harvest_date_0"] = window["end"]
+        for window in annotations:
+            type_windows = window.get("type")
 
             # Find the closest start and end indices
-            start_idx = find_closest_index(window["start"], df["doy"].values)
-            end_idx = find_closest_index(window["end"], df["doy"].values)
+            start_idx = find_closest_index(window["start"], df["date_dt"].values)
+            end_idx = find_closest_index(window["end"], df["date_dt"].values)
 
             # Ensure the indices are in the correct order
             if start_idx > end_idx:
                 start_idx, end_idx = end_idx, start_idx
 
-            y_ph = np.linspace(1.0, 0.0, end_idx - start_idx + 1)
+            y_px = np.linspace(1.0, 0.0, end_idx - start_idx + 1)
 
             # Update the DataFrame without overwriting previous values
-            df.loc[start_idx:end_idx, "y_ph"] = y_ph
+            df.loc[start_idx:end_idx, "y_fd" if type_windows == "flooding_windows" else "y_ph" ] = y_px
+
             print(
-                f"Updated y_ph from {df['doy'].iloc[start_idx]} to {df['doy'].iloc[end_idx]}"
+                f"Updated y_px from {df['date_dt'].iloc[start_idx]} to {df['date_dt'].iloc[end_idx]}"
             )
 
-        # Process each flooding window for y_fd
-        for window in flooding_windows:
-            # Find the closest start and end indices
-            start_idx = find_closest_index(window["start"], df["doy"].values)
-            end_idx = find_closest_index(window["end"], df["doy"].values)
-
-            # Ensure the indices are in the correct order
-            if start_idx > end_idx:
-                start_idx, end_idx = end_idx, start_idx
-
-            y_fd = np.linspace(1.0, 0.0, end_idx - start_idx + 1)
-
-            # Update the DataFrame without overwriting previous values
-            df.loc[start_idx:end_idx, "y_fd"] = y_fd
-            print(
-                f"Updated y_fd from {df['doy'].iloc[start_idx]} to {df['doy'].iloc[end_idx]}"
-            )
 
         os.makedirs(
             os.path.dirname(file_path.replace("input", "output")), exist_ok=True
@@ -548,15 +503,19 @@ def register_window(window_clicks, selectedData, field_index):
     try:
         if ctx.triggered and selectedData and selectedData["range"]["x"]:
             start_date, end_date = selectedData["range"]["x"]
+            start_date = start_date[:10]
+            end_date = end_date[:10]
             window = {"start": start_date, "end": end_date}
             csv = csvs[field_index]
             type_ = "cropping_windows"
-            if (end_date - start_date) <= 60:
+            end_date_dt = str2date(end_date)
+            start_date_dt = str2date(start_date)
+            if (end_date_dt - start_date_dt).days <= 60:
                 type_ = "flooding_windows"
             window["type"] = type_
             csv["annotations"].append(window)
     except Exception as ex:
-        print(ex)
+        print("register_window", ex)
     return field_index
 
 
@@ -595,7 +554,7 @@ def display_double_click_data(clickAnnotationData, field_index):
             csv = csvs[field_index]
             csv["annotations"].pop(index_annotation)
         except Exception as ex:
-            print(ex)
+            print("display_double_click_data", ex)
     return field_index
 
 

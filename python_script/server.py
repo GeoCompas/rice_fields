@@ -205,11 +205,11 @@ def update_graph(field_index, ndvi_data_store):
     folder_id = csv.get("folder_id")
     annotations = csv.get("annotations", [])
     # remove duplicates
-    df["s2_ndvi"] = df["s2_ndvi"].clip(lower=-45, upper=15)
-    df["s1_vh"] = df["s1_vh"].clip(lower=-45, upper=15)
-    df["s1_vv"] = df["s1_vv"].clip(lower=-45, upper=15)
-    df["s2_ndwi"] = df["s2_ndwi"].clip(lower=-45, upper=15)
-    df["s2_mndwi"] = df["s2_mndwi"].clip(lower=-45, upper=15)
+    df["s2_ndvi"] = df["s2_ndvi"].clip(lower=-35, upper=15)
+    df["s1_vh"] = df["s1_vh"].clip(lower=-35, upper=15)
+    df["s1_vv"] = df["s1_vv"].clip(lower=-35, upper=15)
+    df["s2_ndwi"] = df["s2_ndwi"].clip(lower=-35, upper=15)
+    df["s2_mndwi"] = df["s2_mndwi"].clip(lower=-35, upper=15)
 
     df["s2_ndvi_smoothed"] = savgol_filter(df["s2_ndvi"], 10, 3)
     df["s1_vh_smoothed"] = savgol_filter(df["s1_vh"], 10, 3)
@@ -243,12 +243,12 @@ def update_graph(field_index, ndvi_data_store):
                 opacity=0.3,  # opacity
             ),
             go.Scatter(
-                x=df["date_dt"],
+                x=df["date_dt"] + 10,
                 y=df["s1_vh_smoothed"],
                 mode="lines+markers",
                 name="S1 VH Smoothed",
                 line=dict(color="orange"),
-                # opacity=0.5,
+                opacity=0.5,
             ),
             go.Scatter(
                 x=df["date_dt"],
@@ -256,7 +256,7 @@ def update_graph(field_index, ndvi_data_store):
                 mode="lines+markers",
                 name="S1 VV Smoothed",
                 line=dict(color="purple"),
-                # opacity=0.5,
+                opacity=0.5,
             ),
         ]
     )

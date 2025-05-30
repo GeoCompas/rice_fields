@@ -212,8 +212,8 @@ def update_graph(field_index, ndvi_data_store):
     df["s2_mndwi_smoothed"] = savgol_filter(df["s2_mndwi"], 10, 3) * 15
 
     df["s2_ndvi_smoothed"] = df["s2_ndvi_smoothed"].clip(lower=-30, upper=15)
-    df["s1_vh_smoothed"] = df["s1_vh_smoothed"].clip(lower=-30, upper=15)
-    df["s1_vv_smoothed"] = df["s1_vv_smoothed"].clip(lower=-30, upper=15)
+    df["s1_vh_smoothed"] = df["s1_vh_smoothed"].clip(lower=-30, upper=0)
+    df["s1_vv_smoothed"] = df["s1_vv_smoothed"].clip(lower=-30, upper=0)
     df["s2_ndwi_smoothed"] = df["s2_ndwi_smoothed"].clip(lower=-30, upper=15)
     df["s2_mndwi_smoothed"] = df["s2_mndwi_smoothed"].clip(lower=-30, upper=15)
 

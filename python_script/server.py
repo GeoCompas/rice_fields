@@ -122,7 +122,6 @@ print("=" * 20)
 ALL_CSV_COUNT = len(csvs)
 
 app = Dash(__name__)
-app.layout = html.Div([dash.page_container])
 
 btn_style = {
     "fontSize": "15px",
@@ -266,7 +265,8 @@ def update_graph(field_index, ndvi_data_store):
         yaxis_title="",
         dragmode="select",
         height=800,
-        xaxis={"fixedrange": False, "gridcolor": "LightGrey"}, yaxis={"fixedrange": False, },
+        xaxis={"fixedrange": False, "gridcolor": "LightGrey"},
+        yaxis={"fixedrange": True, },
     )
 
 

@@ -243,8 +243,8 @@ def update_graph(field_index, ndvi_data_store):
                 opacity=0.3,  # opacity
             ),
             go.Scatter(
-                x=df["date_dt"] + 10,
-                y=df["s1_vh_smoothed"],
+                x=df["date_dt"] ,
+                y=df["s1_vh_smoothed"]+ 10,
                 mode="lines+markers",
                 name="S1 VH Smoothed",
                 line=dict(color="orange"),

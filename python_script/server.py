@@ -205,11 +205,11 @@ def update_graph(field_index, ndvi_data_store):
     folder_id = csv.get("folder_id")
     annotations = csv.get("annotations", [])
     # remove duplicates
-    df["s2_ndvi_smoothed"] = savgol_filter(df["s2_ndvi"], 10, 3)
-    df["s1_vh_smoothed"] = savgol_filter(df["s1_vh"], 10, 3)
+    df["s2_ndvi_smoothed"] = savgol_filter(df["s2_ndvi"], 10, 3) * 15
+    df["s1_vh_smoothed"] = savgol_filter(df["s1_vh"], 10, 3) + 10
     df["s1_vv_smoothed"] = savgol_filter(df["s1_vv"], 10, 3)
-    df["s2_ndwi_smoothed"] = savgol_filter(df["s2_ndwi"], 10, 3)
-    df["s2_mndwi_smoothed"] = savgol_filter(df["s2_mndwi"], 10, 3)
+    df["s2_ndwi_smoothed"] = savgol_filter(df["s2_ndwi"], 10, 3) * 15
+    df["s2_mndwi_smoothed"] = savgol_filter(df["s2_mndwi"], 10, 3) * 15
 
     df["s2_ndvi_smoothed"] = df["s2_ndvi_smoothed"].clip(lower=-30, upper=15)
     df["s1_vh_smoothed"] = df["s1_vh_smoothed"].clip(lower=-30, upper=15)
@@ -221,7 +221,7 @@ def update_graph(field_index, ndvi_data_store):
         data=[
             go.Scatter(
                 x=df["date_dt"],
-                y=df["s2_mndwi_smoothed"] * 15,
+                y=df["s2_mndwi_smoothed"],
                 mode="lines+markers",
                 name="S2 MNDWI Smoothed",
                 line=dict(color="red"),
@@ -229,22 +229,22 @@ def update_graph(field_index, ndvi_data_store):
             ),
             go.Scatter(
                 x=df["date_dt"],
-                y=df["s2_ndvi_smoothed"] * 15,
+                y=df["s2_ndvi_smoothed"],
                 mode="lines+markers",
                 name="S2 NDVI Smoothed",
                 line=dict(color="green"),
             ),
             go.Scatter(
                 x=df["date_dt"],
-                y=df["s2_ndwi_smoothed"] * 15,
+                y=df["s2_ndwi_smoothed"],
                 mode="lines+markers",
                 name="S2 NDWI Smoothed",
                 line=dict(color="blue"),
                 opacity=0.3,  # opacity
             ),
             go.Scatter(
-                x=df["date_dt"] ,
-                y=df["s1_vh_smoothed"]+ 10,
+                x=df["date_dt"],
+                y=df["s1_vh_smoothed"],
                 mode="lines+markers",
                 name="S1 VH Smoothed",
                 line=dict(color="orange"),
@@ -272,9 +272,10 @@ def update_graph(field_index, ndvi_data_store):
         dragmode="select",
         height=800,
         xaxis={"fixedrange": False, "gridcolor": "LightGrey"},
-        yaxis={"fixedrange": True, },
+        yaxis={
+            "fixedrange": True,
+        },
     )
-
 
     # Logic to add planting and harvest windows to the figure
     for k, window in enumerate(annotations):
@@ -287,7 +288,7 @@ def update_graph(field_index, ndvi_data_store):
 
         diff_days = (x1 - x0).days
         last_period = x1 - ((x1 - x0) // 4)
-        mid_point =  x0 + (x1 - x0) / 2
+        mid_point = x0 + (x1 - x0) / 2
 
         type_windows = window.get("type")
         color = "green" if type_windows == "cropping_windows" else "blue"
@@ -383,12 +384,14 @@ def save_annotations_and_next(n_clicks, field_index):
             y_px = np.linspace(1.0, 0.0, end_idx - start_idx + 1)
 
             # Update the DataFrame without overwriting previous values
-            df.loc[start_idx:end_idx, "y_fd" if type_windows == "flooding_windows" else "y_ph" ] = y_px
+            df.loc[
+                start_idx:end_idx,
+                "y_fd" if type_windows == "flooding_windows" else "y_ph",
+            ] = y_px
 
             print(
                 f"Updated y_px from {df['date_dt'].iloc[start_idx]} to {df['date_dt'].iloc[end_idx]}"
             )
-
 
         os.makedirs(
             os.path.dirname(file_path.replace("input", "output")), exist_ok=True

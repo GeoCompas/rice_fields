@@ -205,11 +205,11 @@ def update_graph(field_index, ndvi_data_store):
     folder_id = csv.get("folder_id")
     annotations = csv.get("annotations", [])
     # remove duplicates
-    df["s2_ndvi"] = df["s2_ndvi"].clip(lower=-35, upper=15)
-    df["s1_vh"] = df["s1_vh"].clip(lower=-35, upper=15)
-    df["s1_vv"] = df["s1_vv"].clip(lower=-35, upper=15)
-    df["s2_ndwi"] = df["s2_ndwi"].clip(lower=-35, upper=15)
-    df["s2_mndwi"] = df["s2_mndwi"].clip(lower=-35, upper=15)
+    df["s2_ndvi"] = df["s2_ndvi"].clip(lower=-30, upper=18)
+    df["s1_vh"] = df["s1_vh"].clip(lower=-30, upper=18)
+    df["s1_vv"] = df["s1_vv"].clip(lower=-30, upper=18)
+    df["s2_ndwi"] = df["s2_ndwi"].clip(lower=-30, upper=18)
+    df["s2_mndwi"] = df["s2_mndwi"].clip(lower=-30, upper=18)
 
     df["s2_ndvi_smoothed"] = savgol_filter(df["s2_ndvi"], 10, 3)
     df["s1_vh_smoothed"] = savgol_filter(df["s1_vh"], 10, 3)

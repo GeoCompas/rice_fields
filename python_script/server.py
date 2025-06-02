@@ -52,6 +52,7 @@ def read_csv(csv_path):
     if "date" not in df.columns:
         has_error = True
         print(csv_path, "does not contain date column")
+    df = df.drop_duplicates(subset=["date"])
     df["date_dt"] = df["date"].apply(str2date)
     # df.drop_duplicates(subset=["doy"], inplace=True)
     df.reset_index(drop=True, inplace=True)
